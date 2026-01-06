@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta name="theme-color" content="#FF6B35">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/manifest.json?v=4">
+    <title>روابط الخصم - AliExpress</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Cairo', sans-serif; background: #0f0f1a; min-height: 100vh; color: #fff; overflow-x: hidden; }
+        
+        .header { 
+            background: linear-gradient(135deg, #FF6B35, #e85a2a); 
+            padding: 70px 20px 60px; 
+            border-radius: 0 0 40px 40px; 
+            text-align: center; 
+            position: relative; 
+            box-shadow: 0 10px 30px rgba(255, 107, 53, 0.3);
+        }
+        .header h1 { font-size: 32px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.5px; }
+        .header p { opacity: 0.9; font-size: 15px; font-weight: 400; }
+        
+        .top-actions {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .settings-btn { 
+            background: rgba(255,255,255,0.2); border: none; 
+            border-radius: 12px; width: 42px; height: 42px; 
+            color: #fff; font-size: 18px; cursor: pointer;
+            backdrop-filter: blur(8px);
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+        .telegram-page-btn { 
+            background: #0088cc; border: none; 
+            border-radius: 12px; width: 42px; height: 42px; 
+            color: #fff; font-size: 18px; cursor: pointer; 
+            display: flex; align-items: center; justify-content: center; 
+            text-decoration: none;
+            box-shadow: 0 4px 15px rgba(0, 136, 204, 0.4);
+            transition: all 0.2s;
+        }
+        .settings-btn:active, .telegram-page-btn:active { transform: scale(0.9); }
+        
+        .search-container { 
+            margin: -30px 20px 0; 
+            background: #fff; 
+            border-radius: 18px; 
+            padding: 6px; 
+            display: flex; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+            z-index: 10;
+        }
+        .search-input { 
+            flex: 1; border: none; padding: 15px 18px; 
+            font-size: 14px; font-family: 'Cairo', sans-serif; 
+            direction: rtl; background: transparent; color: #333;
+        }
+        .search-input::placeholder { color: #999; }
+        .search-input:focus { outline: none; }
+        .search-btn { 
+            background: #FF6B35; border: none; 
+            border-radius: 14px; width: 50px; height: 50px; 
+            cursor: pointer; display: flex; align-items: center; 
+            justify-content: center; color: #fff; font-size: 20px;
+            transition: all 0.2s;
+        }
+        .search-btn:active { transform: scale(0.95); }
+        .search-btn:disabled { background: #ccc; }
+        
+        .content { padding: 30px 20px; }
+        .section-title { font-size: 19px; font-weight: 700; margin: 25px 0 15px; display: flex; align-items: center; gap: 10px; }
+        .section-title::after { content: ""; flex: 1; height: 1px; background: rgba(255,255,255,0.1); }
+        
+        .error-msg { background: rgba(255,68,68,0.1); border: 1px solid #ff4444; border-radius: 12px; padding: 15px; text-align: center; color: #ff4444; margin-bottom: 20px; display: none; font-size: 14px; }
+        .error-msg.show { display: block; }
+        
+        .loading { text-align: center; padding: 40px; display: none; }
+        .loading.show { display: block; }
+        .loading i { font-size: 40px; color: #FF6B35; animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        
+        .results { display: none; }
+        .results.show { display: block; }
+        
+        .product-card { background: #16213e; border-radius: 20px; overflow: hidden; margin-bottom: 25px; border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .product-image { width: 100%; height: 230px; object-fit: cover; }
+        .product-title { padding: 18px 18px 8px; font-size: 16px; line-height: 1.5; font-weight: 600; color: #eee; text-align: right; }
+        .product-price-row { padding: 0 18px 10px; display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+        .product-price { font-size: 22px; font-weight: 800; color: #FF6B35; }
+        .product-original-price { font-size: 14px; color: #777; text-decoration: line-through; }
+        .product-discount { background: #4CAF50; color: #fff; padding: 3px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; }
+        
+        .product-info { padding: 0 18px 18px; display: flex; justify-content: flex-end; gap: 15px; flex-wrap: wrap; font-size: 12px; color: #888; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; }
+        .product-info i { color: #FF6B35; }
+        
+        .link-card { background: #1a1a2e; border-radius: 18px; padding: 18px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.08); transition: transform 0.2s; }
+        .link-card:active { transform: scale(0.98); }
+        .link-header { display: flex; align-items: center; justify-content: flex-end; margin-bottom: 10px; }
+        .link-header i { color: #FF6B35; margin-left: 10px; font-size: 16px; }
+        .link-header span { font-weight: 700; font-size: 15px; }
+        .link-text { color: #666; font-size: 11px; word-break: break-all; margin-bottom: 15px; direction: ltr; text-align: right; opacity: 0.6; }
+        
+        .link-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .action-btn { 
+            display: flex; align-items: center; justify-content: center; 
+            gap: 8px; padding: 12px 5px; border-radius: 12px; border: none; 
+            cursor: pointer; font-family: 'Cairo', sans-serif; font-size: 13px; 
+            color: #fff; font-weight: 700; transition: all 0.2s;
+        }
+        .copy-btn { background: #FF6B35; }
+        .open-btn { background: #4CAF50; }
+        .tele-btn { background: #0088cc; grid-column: span 2; }
+        .share-btn { background: #673AB7; grid-column: span 2; }
+        
+        .warning-card { background: rgba(255, 165, 0, 0.1); border-radius: 15px; padding: 15px; text-align: center; margin-top: 25px; color: #FFA500; display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px dashed rgba(255, 165, 0, 0.3); font-size: 14px; }
+        
+        .telegram-section { background: #16213e; border-radius: 20px; padding: 20px; margin-top: 25px; border: 1px solid rgba(0, 136, 204, 0.3); box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .telegram-section h3 { color: #0088cc; margin-bottom: 18px; display: flex; align-items: center; justify-content: flex-end; gap: 10px; font-size: 18px; }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 6px; color: #888; font-size: 13px; text-align: right; padding-right: 5px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px 15px; border-radius: 10px; border: 1px solid #2d2d44; background: #1a1a2e; color: #fff; font-family: 'Cairo', sans-serif; font-size: 14px; direction: rtl; transition: border-color 0.2s; }
+        .form-group input:focus { outline: none; border-color: #FF6B35; }
+        
+        .publish-btn { width: 100%; padding: 15px; background: linear-gradient(135deg, #0088cc, #0077b5); border: none; border-radius: 12px; color: #fff; font-family: 'Cairo', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 5px 15px rgba(0, 136, 204, 0.3); }
+        .publish-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .empty-state { text-align: center; padding: 80px 20px; color: #444; }
+        .empty-state i { font-size: 70px; margin-bottom: 20px; opacity: 0.2; display: block; }
+        .empty-state p { font-size: 16px; font-weight: 600; }
+        
+        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 12px 25px; border-radius: 30px; display: none; z-index: 5000; font-size: 14px; font-weight: 600; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        .toast.show { display: block; animation: fadeInUp 0.3s ease-out; }
+        @keyframes fadeInUp { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+        
+        /* Modal Design */
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 4000; overflow-y: auto; padding: 20px; backdrop-filter: blur(5px); }
+        .modal.show { display: flex; align-items: flex-start; justify-content: center; }
+        .modal-content { background: #16213e; width: 100%; max-width: 500px; border-radius: 25px; padding: 25px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 1px solid #2d2d44; padding-bottom: 15px; }
+        .modal-header h2 { color: #FF6B35; font-size: 22px; font-weight: 800; }
+        .modal-close { background: rgba(255,255,255,0.05); border: none; color: #888; width: 35px; height: 35px; border-radius: 50%; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        
+        .save-btn { width: 100%; padding: 15px; background: #4CAF50; border: none; border-radius: 12px; color: #fff; font-family: 'Cairo', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 10px; box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3); }
+        .reset-btn { width: 100%; padding: 12px; background: transparent; border: 1px solid #ff4444; border-radius: 12px; color: #ff4444; font-family: 'Cairo', sans-serif; font-size: 14px; cursor: pointer; margin-top: 15px; transition: all 0.2s; }
+        .reset-btn:active { background: rgba(255, 68, 68, 0.1); }
+        .settings-hint { font-size: 11px; color: #666; margin-top: 4px; padding-right: 5px; }
+        
+        .install-prompt { position: fixed; bottom: 20px; left: 20px; right: 20px; background: #fff; color: #333; padding: 15px 20px; border-radius: 20px; display: none; z-index: 3500; align-items: center; justify-content: space-between; box-shadow: 0 10px 40px rgba(0,0,0,0.4); border: 1px solid #eee; }
+        .install-prompt.show { display: flex; }
+        .install-prompt span { font-size: 13px; font-weight: 600; flex: 1; margin-right: 10px; line-height: 1.4; }
+        .install-btn { background: #FF6B35; color: #fff; border: none; padding: 8px 20px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+        hr { border: none; border-top: 1px solid rgba(255,255,255,0.05); margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="top-actions">
+            <button class="settings-btn" onclick="openSettings()"><i class="fas fa-cog"></i></button>
+            <div style="display: flex; gap: 10px;">
+                <button id="mainInstallBtn" class="settings-btn" style="background: #FF6B35; color: white;" onclick="installApp()"><i class="fas fa-download"></i></button>
+                <a href="/collections.html" class="collections-page-btn" style="background: #673AB7; border: none; border-radius: 12px; width: 42px; height: 42px; color: #fff; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; text-decoration: none; box-shadow: 0 4px 15px rgba(103, 58, 183, 0.4);"><i class="fas fa-layer-group"></i></a>
+                <a href="/telegram.html" class="telegram-page-btn"><i class="fab fa-telegram"></i></a>
+            </div>
+        </div>
+        <h1>روابط الخصم</h1>
+        <p>احصل على أفضل عروض AliExpress</p>
+    </div>
+
+    <div class="search-container">
+        <input type="text" class="search-input" id="urlInput" placeholder="الصق رابط المنتج هنا...">
+        <button class="search-btn" id="searchBtn"><i class="fas fa-search"></i></button>
+    </div>
+
+    <div class="content">
+        <div class="error-msg" id="errorMsg"></div>
+        <div class="loading" id="loading"><i class="fas fa-spinner"></i><p style="margin-top:10px; font-weight:600;">جاري البحث عن العروض...</p></div>
+        
+        <div class="empty-state" id="emptyState">
+            <i class="fas fa-link"></i>
+            <p>الصق رابط منتج AliExpress للبدء</p>
+        </div>
+
+        <div class="results" id="results">
+            <div class="product-card">
+                <img class="product-image" id="productImage" src="" alt="">
+                <div class="product-title" id="productTitle"></div>
+                <div class="product-price-row">
+                    <span class="product-discount" id="productDiscount"></span>
+                    <span class="product-original-price" id="productOriginalPrice"></span>
+                    <span class="product-price" id="productPrice"></span>
+                </div>
+                <div class="product-info" id="productInfo"></div>
+            </div>
+
+            <div class="section-title">🎉 روابط التخفيض</div>
+            <div id="linksContainer"></div>
+
+            <div class="warning-card" id="warningCard">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span id="warningText">غيّر البلد إلى كندا 🇨🇦</span>
+            </div>
+
+            <div class="telegram-section">
+                <h3><i class="fab fa-telegram"></i> نشر سريع في القناة</h3>
+                <div class="form-group">
+                    <label>الرابط المختار:</label>
+                    <select id="linkSelect"><option value="">-- اختر الرابط --</option></select>
+                </div>
+                <div class="form-group">
+                    <label>القناة المستهدفة:</label>
+                    <select id="channelSelect">
+                        <option value="1">القناة الأولى</option>
+                        <option value="2">القناة الثانية</option>
+                        <option value="both">كلا القناتين</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>كود الكوبون (اختياري):</label>
+                    <input type="text" id="couponInput" placeholder="مثال: ALIOFFERS5">
+                </div>
+                <button class="publish-btn" id="publishBtn" disabled><i class="fab fa-telegram"></i> نشر المنشور الآن</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-cog"></i> الإعدادات</h2>
+                <button class="modal-close" onclick="closeSettings()">&times;</button>
+            </div>
+            
+            <div style="max-height: 60vh; overflow-y: auto; padding-right: 5px;">
+                <div class="form-group">
+                    <label>📢 نص بداية الرسالة:</label>
+                    <input type="text" id="settingPrefix" placeholder="📢تخفيض لـ">
+                </div>
+                
+                <div class="form-group">
+                    <label>✅ نص السعر بعد التخفيض:</label>
+                    <input type="text" id="settingSalePrice" placeholder="✅السعر بعد التخفيض:">
+                </div>
+                
+                <div class="form-group">
+                    <label>📌 نص رابط الشراء:</label>
+                    <input type="text" id="settingLinkText" placeholder="📌رابط الشراء :">
+                </div>
+                
+                <div class="form-group">
+                    <label>🎁 نص الكوبون:</label>
+                    <input type="text" id="settingCouponText" placeholder="🎁كوبون:">
+                </div>
+                
+                <div class="form-group">
+                    <label>📝 نص التذييل (Footer):</label>
+                    <textarea id="settingFooter" style="min-height: 80px;"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>🤖 رابط البوت:</label>
+                    <input type="text" id="settingBotLink">
+                </div>
+                
+                <div class="form-group">
+                    <label>#️⃣ الهاشتاغات:</label>
+                    <input type="text" id="settingHashtags">
+                </div>
+                
+                <div class="form-group">
+                    <label>⚠️ نص التحذير:</label>
+                    <input type="text" id="settingWarning">
+                </div>
+                
+                <div class="form-group">
+                    <label>🖼️ إطار الصورة (Frame):</label>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                        <img src="/frame.jpg" id="currentFramePreview" style="width: 60px; height: 60px; border-radius: 8px; border: 1px solid #2d2d44; object-fit: cover;">
+                        <div style="flex: 1;">
+                            <input type="file" id="frameUpload" accept="image/*" style="display: none;">
+                            <button type="button" onclick="document.getElementById('frameUpload').click()" class="action-btn" style="background: #FF6B35; width: 100%;"><i class="fas fa-upload"></i> تغيير الإطار</button>
+                        </div>
+                    </div>
+                    <p class="settings-hint">يفضل استخدام صورة مربعة (1:1) وبصيغة JPG أو PNG.</p>
+                </div>
+                
+                <hr>
+                <h3 style="color: #FF6B35; margin-bottom: 15px; font-size: 16px;">🔐 إعدادات الحساب</h3>
+                
+                <div class="form-group">
+                    <label>🤖 Bot Token:</label>
+                    <input type="password" id="settingBotToken">
+                </div>
+                
+                <div class="form-group">
+                    <label>📢 Channel ID 1:</label>
+                    <input type="text" id="settingChannelId">
+                </div>
+                
+                <div class="form-group">
+                    <label>📢 Channel ID 2:</label>
+                    <input type="text" id="settingChannelId2">
+                </div>
+                
+                <div class="form-group">
+                    <label>🍪 AliExpress Cookie:</label>
+                    <input type="password" id="settingCook">
+                </div>
+                
+                <div class="form-group">
+                    <label>🔑 App Key:</label>
+                    <input type="password" id="settingAppKey">
+                </div>
+                
+                <div class="form-group">
+                    <label>🔒 App Secret:</label>
+                    <input type="password" id="settingAppSecret">
+                </div>
+            </div>
+            
+            <button class="save-btn" onclick="saveSettings()"><i class="fas fa-save"></i> حفظ جميع التغييرات</button>
+            <button class="reset-btn" onclick="resetSettings()"><i class="fas fa-undo"></i> استعادة القيم الافتراضية</button>
+        </div>
+    </div>
+
+    <div class="install-prompt" id="installPrompt">
+        <span>ثبّت التطبيق على هاتف للحصول على تجربة أسرع وأفضل</span>
+        <button class="install-btn" id="installBtn">تثبيت</button>
+        <button onclick="document.getElementById('installPrompt').classList.remove('show')" style="background:none; border:none; color:#999; font-size:18px; padding-left:10px;">&times;</button>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // Use current logic but adapt it to new UI structure
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('installPrompt').classList.add('show');
+            document.getElementById('mainInstallBtn').style.display = 'flex';
+        });
+
+        async function installApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    console.log('User accepted the install prompt');
+                    const toast = document.getElementById('toast');
+                    toast.textContent = "جاري إضافة التطبيق إلى الشاشة الرئيسية...";
+                    toast.classList.add('show');
+                    setTimeout(() => toast.classList.remove('show'), 3000);
+                }
+                deferredPrompt = null;
+                document.getElementById('installPrompt').classList.remove('show');
+                document.getElementById('mainInstallBtn').style.opacity = '0.5';
+            } else {
+                // If it's an Android device and not in standalone mode, it might be possible to trigger the prompt via a user gesture 
+                // but usually, we just have to wait for the event.
+                // However, many users prefer a direct "Download" feeling.
+                // Since this is a PWA, we can't "download" an APK directly unless we have one.
+                // I will update the message to be more direct.
+                const toast = document.getElementById('toast');
+                toast.textContent = "يرجى الضغط على (تثبيت التطبيق) من قائمة المتصفح العلوية";
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 4000);
+            }
+        }
+
+        document.getElementById('installBtn').onclick = installApp;
+
+        const defaultSettings = {
+            prefix: '📢تخفيض لـ',
+            salePrice: '✅السعر بعد التخفيض:',
+            linkText: '📌رابط الشراء :',
+            couponText: '🎁كوبون:',
+            footer: '⚠️ لا تنس استخدام البوت الرسمي لـ AliOffersDz للحصول على أفضل العروض والتخفيضات من AliExpress 👇',
+            botLink: '@AliOffersDZ_bot',
+            hashtags: '#Aliexpress #Offers',
+            warning: 'غيّر البلد إلى كندا 🇨🇦',
+            telegramToken: '',
+            channelId: '',
+            channelId2: '@AliOffers_Dz',
+            cook: '',
+            appKey: '',
+            appSecret: ''
+        };
+
+        let settings = JSON.parse(localStorage.getItem('appSettings')) || { ...defaultSettings };
+
+        function openSettings() {
+            Object.keys(settings).forEach(key => {
+                const el = document.getElementById('setting' + key.charAt(0).toUpperCase() + key.slice(1));
+                if (el) el.value = settings[key] || '';
+            });
+            document.getElementById('settingsModal').classList.add('show');
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.remove('show');
+        }
+
+        function saveSettings() {
+            // ... existing logic
+            const newSettings = {};
+            Object.keys(defaultSettings).forEach(key => {
+                const el = document.getElementById('setting' + key.charAt(0).toUpperCase() + key.slice(1));
+                if (el) newSettings[key] = el.value || defaultSettings[key];
+            });
+            settings = newSettings;
+            localStorage.setItem('appSettings', JSON.stringify(settings));
+            document.getElementById('warningText').textContent = settings.warning;
+            
+            // Handle frame upload if any
+            const frameFile = document.getElementById('frameUpload').files[0];
+            if (frameFile) {
+                const formData = new FormData();
+                formData.append('frame', frameFile);
+                fetch('/api/upload-frame', {
+                    method: 'POST',
+                    body: formData
+                }).then(res => res.json()).then(data => {
+                    if (data.success) {
+                        document.getElementById('currentFramePreview').src = '/custom_frame.jpg?t=' + Date.now();
+                        showToast('تم حفظ الإعدادات وتغيير الإطار ✅');
+                    }
+                });
+            } else {
+                closeSettings();
+                showToast('تم حفظ الإعدادات ✅');
+            }
+        }
+
+        document.getElementById('frameUpload').onchange = function(e) {
+            if (e.target.files && e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    document.getElementById('currentFramePreview').src = event.target.result;
+                };
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        };
+
+        // Initialize frame preview
+        fetch('/custom_frame.jpg').then(res => {
+            if (res.ok) document.getElementById('currentFramePreview').src = '/custom_frame.jpg';
+        });
+
+        function resetSettings() {
+            settings = { ...defaultSettings };
+            localStorage.setItem('appSettings', JSON.stringify(settings));
+            openSettings();
+            showToast('تمت الاستعادة');
+        }
+
+        document.getElementById('warningText').textContent = settings.warning;
+
+        const urlInput = document.getElementById('urlInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const errorMsg = document.getElementById('errorMsg');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const emptyState = document.getElementById('emptyState');
+        const productImage = document.getElementById('productImage');
+        const productTitle = document.getElementById('productTitle');
+        const productPrice = document.getElementById('productPrice');
+        const productOriginalPrice = document.getElementById('productOriginalPrice');
+        const productDiscount = document.getElementById('productDiscount');
+        const productInfo = document.getElementById('productInfo');
+        const linksContainer = document.getElementById('linksContainer');
+        const toast = document.getElementById('toast');
+        const linkSelect = document.getElementById('linkSelect');
+        const couponInput = document.getElementById('couponInput');
+        const publishBtn = document.getElementById('publishBtn');
+
+        let currentProductData = null;
+        const linkTypes = [
+            { key: 'coin', title: 'تخفيض العملات', icon: 'fa-coins' },
+            { key: 'point', title: 'رابط العملات', icon: 'fa-star' },
+            { key: 'super', title: 'السوبر ديلز', icon: 'fa-bolt' },
+            { key: 'limit', title: 'العرض المحدود', icon: 'fa-clock' },
+            { key: 'bundle', title: 'Bundle Deals', icon: 'fa-gift' }
+        ];
+
+        searchBtn.onclick = search;
+        urlInput.onkeypress = (e) => { if (e.key === 'Enter') search(); };
+
+        async function search() {
+            const url = urlInput.value.trim();
+            if (!url) return showError('الرجاء إدخال الرابط');
+            if (!url.includes('aliexpress.com')) return showError('رابط AliExpress فقط');
+
+            errorMsg.classList.remove('show');
+            results.classList.remove('show');
+            emptyState.style.display = 'none';
+            loading.classList.add('show');
+            searchBtn.disabled = true;
+
+            try {
+                const credentials = {
+                    cook: settings.cook || '',
+                    appKey: settings.appKey || '',
+                    appSecret: settings.appSecret || ''
+                };
+                const response = await fetch('/api/affiliate?t=' + Date.now(), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, credentials })
+                });
+                const data = await response.json();
+                if (data.success) showResults(data.data);
+                else showError(data.error || 'حدث خطأ');
+            } catch (err) {
+                showError('فشل الاتصال');
+            } finally {
+                loading.classList.remove('show');
+                searchBtn.disabled = false;
+            }
+        }
+
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.classList.add('show');
+        }
+
+        function showResults(data) {
+            currentProductData = data;
+            productImage.src = data.image || '';
+            productTitle.textContent = data.title || '';
+            productPrice.textContent = data.price ? `${data.price} ${data.currency || ''}` : '';
+            
+            if (data.original_price && data.original_price !== data.price) {
+                productOriginalPrice.textContent = `${data.original_price} ${data.currency || ''}`;
+                productOriginalPrice.style.display = 'block';
+            } else productOriginalPrice.style.display = 'none';
+
+            if (data.discount) {
+                productDiscount.textContent = `-${data.discount}%`;
+                productDiscount.style.display = 'inline-block';
+            } else productDiscount.style.display = 'none';
+
+            let infoHtml = '';
+            if (data.shop_name) infoHtml += `<span><i class="fas fa-store"></i> ${data.shop_name}</span>`;
+            if (data.rating) infoHtml += `<span><i class="fas fa-star"></i> ${data.rating}</span>`;
+            if (data.orders) infoHtml += `<span><i class="fas fa-shopping-cart"></i> ${data.orders} طلب</span>`;
+            productInfo.innerHTML = infoHtml;
+
+            linksContainer.innerHTML = '';
+            linkSelect.innerHTML = '<option value="">-- اختر الرابط --</option>';
+
+            linkTypes.forEach(type => {
+                const link = data.links[type.key];
+                if (link) {
+                    linkSelect.innerHTML += `<option value="${link}">${type.title}</option>`;
+                    linksContainer.innerHTML += `
+                        <div class="link-card">
+                            <div class="link-header"><span>${type.title}</span><i class="fas ${type.icon}"></i></div>
+                            <div class="link-text">${link}</div>
+                            <div class="link-actions">
+                                <button class="action-btn open-btn" onclick="window.open('${link}', '_blank')"><i class="fas fa-external-link-alt"></i> فتح</button>
+                                <button class="action-btn copy-btn" onclick="copy('${link}')"><i class="fas fa-copy"></i> نسخ</button>
+                                <button class="action-btn tele-btn" onclick="openTelePage('${link}')"><i class="fab fa-telegram-plane"></i> صفحة النشر</button>
+                                <button class="action-btn share-btn" onclick="shareLink('${link}')"><i class="fas fa-share-alt"></i> مشاركة سريعة</button>
+                            </div>
+                        </div>`;
+                }
+            });
+            results.classList.add('show');
+        }
+
+        function copy(text) {
+            navigator.clipboard.writeText(text).then(() => showToast('تم نسخ الرابط ✅'));
+        }
+
+        function openTelePage(link) {
+            const data = {
+                title: currentProductData.title,
+                image: currentProductData.image,
+                price: currentProductData.price + ' ' + (currentProductData.currency || ''),
+                link: link
+            };
+            const params = new URLSearchParams(data).toString();
+            window.open('/telegram.html?' + params, '_blank');
+        }
+
+        function shareLink(link) {
+            if (navigator.share) {
+                navigator.share({
+                    title: currentProductData.title,
+                    text: `${settings.prefix} ${currentProductData.title}\n${settings.salePrice} ${currentProductData.price} ${currentProductData.currency}\n`,
+                    url: link
+                }).catch(() => {});
+            } else {
+                copy(link);
+                showToast('تم نسخ الرابط (المشاركة غير مدعومة)');
+            }
+        }
+
+        function showToast(msg) {
+            toast.textContent = msg;
+            toast.className = 'toast show';
+            setTimeout(() => toast.className = 'toast', 2500);
+        }
+
+        linkSelect.onchange = () => { publishBtn.disabled = !linkSelect.value; };
+
+        publishBtn.onclick = async () => {
+            const link = linkSelect.value;
+            if (!link) return;
+            publishBtn.disabled = true;
+            publishBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري النشر...';
+            try {
+                const channelChoice = document.getElementById('channelSelect').value;
+                const credentials = {
+                    telegramToken: settings.telegramToken || '',
+                    channelId: settings.channelId || '',
+                    channelId2: settings.channelId2 || '@AliOffers_Dz',
+                    channelChoice: channelChoice
+                };
+                const res = await fetch('/api/publish-telegram', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: currentProductData.title,
+                        price: currentProductData.price + ' ' + (currentProductData.currency || ''),
+                        link: link,
+                        coupon: couponInput.value.trim() || null,
+                        image: currentProductData.image || null,
+                        settings: settings,
+                        credentials: credentials
+                    })
+                });
+                const result = await res.json();
+                if (result.success) { showToast('تم النشر بنجاح! ✅'); couponInput.value = ''; }
+                else showToast(result.error || 'فشل النشر');
+            } catch (e) { showToast('خطأ في الاتصال'); }
+            finally { publishBtn.disabled = false; publishBtn.innerHTML = '<i class="fab fa-telegram"></i> نشر في القناة'; }
+        };
+
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+    </script>
+</body>
+</html>
