@@ -59,7 +59,13 @@
         
         <div class="form-group">
             <label>رابط الصورة:</label>
-            <input type="text" id="productImage" placeholder="https://...">
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="productImage" placeholder="https://..." style="flex: 1;">
+                <label for="imageUpload" style="margin: 0; cursor: pointer; background: #16213e; border: 2px solid #2d2d44; border-radius: 10px; padding: 12px 20px; display: flex; align-items: center; justify-content: center; transition: all 0.3s;" onmouseover="this.style.borderColor='#0088cc'" onmouseout="this.style.borderColor='#2d2d44'">
+                    <i class="fas fa-upload" style="color: #0088cc; font-size: 20px;"></i>
+                    <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+                </label>
+            </div>
             <button type="button" class="frame-btn" id="frameBtn" style="margin-top: 10px; padding: 12px 20px; background: linear-gradient(135deg, #FF9800, #F57C00); border: none; border-radius: 10px; color: #fff; font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%;">
                 <i class="fas fa-image"></i> إضافة إطار للصورة
             </button>
@@ -156,6 +162,7 @@
         const copyMsgBtn = document.getElementById('copyMsgBtn');
         const frameBtn = document.getElementById('frameBtn');
         const framedImageData = document.getElementById('framedImageData');
+        const imageUpload = document.getElementById('imageUpload');
         const toast = document.getElementById('toast');
         let isFramed = false;
 
@@ -190,6 +197,24 @@
         function updatePreview() {
             messagePreview.textContent = generateMessage();
         }
+
+        imageUpload.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const base64Image = event.target.result;
+                    imagePreview.src = base64Image;
+                    imagePreview.style.display = 'block';
+                    productImage.value = 'صورة محملة يدوياً'; // Placeholder
+                    framedImageData.value = base64Image;
+                    isFramed = true; // Use framedImageData as the source
+                    frameBtn.innerHTML = '<i class="fas fa-image"></i> إضافة إطار للصورة';
+                    frameBtn.style.background = 'linear-gradient(135deg, #FF9800, #F57C00)';
+                };
+                reader.readAsDataURL(file);
+            }
+        };
 
         productImage.oninput = () => {
             const url = productImage.value;
