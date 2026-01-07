@@ -180,6 +180,9 @@ app.post('/api/publish-telegram', async (req, res) => {
     if (coupon) message += `${s.couponText} ${coupon}\n\n`;
     message += `${s.footer}\n🔗 ${s.botLink}\n\n${s.hashtags}`;
     
+    // Use custom message if provided
+    const finalMessage = req.body.customMessage || message;
+    
     const bot = new Telegraf(botToken);
     
     let channels = [];
@@ -197,12 +200,12 @@ app.post('/api/publish-telegram', async (req, res) => {
         if (image.startsWith('data:image')) {
           const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
           const imageBuffer = Buffer.from(base64Data, 'base64');
-          await bot.telegram.sendPhoto(ch, { source: imageBuffer }, { caption: message });
+          await bot.telegram.sendPhoto(ch, { source: imageBuffer }, { caption: finalMessage });
         } else {
-          await bot.telegram.sendPhoto(ch, image, { caption: message });
+          await bot.telegram.sendPhoto(ch, image, { caption: finalMessage });
         }
       } else {
-        await bot.telegram.sendMessage(ch, message);
+        await bot.telegram.sendMessage(ch, finalMessage);
       }
     }
     
