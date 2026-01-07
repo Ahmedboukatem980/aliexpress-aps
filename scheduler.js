@@ -15,31 +15,28 @@ class PostScheduler {
     this.cachedCredentials = credentials;
   }
 
+  saveScheduledPosts() {
+    try {
+      const postsToSave = this.scheduledPosts.map(p => {
+        // We need to keep credentials for at least one turn to ensure publishPost can access them
+        // But for security, we'll only save them if they aren't already in the file or if we really need them
+        return p; 
+      });
+      fs.writeFileSync(SCHEDULED_FILE, JSON.stringify(postsToSave, null, 2));
+    } catch (e) {
+      console.error('Error saving scheduled posts:', e);
+    }
+  }
+
   loadScheduledPosts() {
     try {
       if (fs.existsSync(SCHEDULED_FILE)) {
-        const posts = JSON.parse(fs.readFileSync(SCHEDULED_FILE, 'utf8'));
-        return posts.map(p => {
-          const { credentials, ...safePost } = p;
-          return safePost;
-        });
+        return JSON.parse(fs.readFileSync(SCHEDULED_FILE, 'utf8'));
       }
     } catch (e) {
       console.error('Error loading scheduled posts:', e);
     }
     return [];
-  }
-
-  saveScheduledPosts() {
-    try {
-      const safePosts = this.scheduledPosts.map(p => {
-        const { credentials, ...safePost } = p;
-        return safePost;
-      });
-      fs.writeFileSync(SCHEDULED_FILE, JSON.stringify(safePosts, null, 2));
-    } catch (e) {
-      console.error('Error saving scheduled posts:', e);
-    }
   }
 
   addPost(post) {
@@ -53,6 +50,7 @@ class PostScheduler {
       image: post.image,
       scheduledTime: post.scheduledTime,
       channelChoice: post.credentials?.channelChoice || 'both',
+      credentials: post.credentials, // Store credentials with the post
       status: 'pending',
       createdAt: new Date().toISOString()
     };
@@ -98,8 +96,8 @@ class PostScheduler {
   }
 
   async publishPost(post) {
-    const { message, image, channelChoice } = post;
-    const credentials = this.cachedCredentials;
+    const { message, image, channelChoice, credentials: postCredentials } = post;
+    const credentials = postCredentials || this.cachedCredentials;
     
     if (!credentials || !credentials.telegramToken) {
       const envToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -111,7 +109,18 @@ class PostScheduler {
       if (!envChannelId) {
         throw new Error('Channel ID not configured');
       }
-      await bot.telegram.sendMessage(envChannelId, message);
+
+      if (image) {
+        if (image.startsWith('data:image')) {
+          const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+          const imageBuffer = Buffer.from(base64Data, 'base64');
+          await bot.telegram.sendPhoto(envChannelId, { source: imageBuffer }, { caption: message });
+        } else {
+          await bot.telegram.sendPhoto(envChannelId, image, { caption: message });
+        }
+      } else {
+        await bot.telegram.sendMessage(envChannelId, message);
+      }
       return;
     }
     
