@@ -165,60 +165,60 @@ async function fetchLinkPreview(productId) {
     const urlsToTry = [
         `https://www.aliexpress.com/item/${productId}.html`,
         `https://www.aliexpress.us/item/${productId}.html`,
-        `https://ar.aliexpress.com/item/${productId}.html`
+        `https://ar.aliexpress.com/item/${productId}.html`,
+        `https://www.aliexpress.com/item/info/${productId}.html`
     ];
     
     for (const productUrl of urlsToTry) {
         try {
             const res = await got(productUrl, {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
                     'Accept-Language': 'en-US,en;q=0.9,ar;q=0.8',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
                 },
-                timeout: { request: 15000 },
-                followRedirect: true
+                timeout: { request: 20000 },
+                followRedirect: true,
+                retry: { limit: 2 }
             });
 
             const html = res.body;
             
             // Skip if 404 page
-            if (html.includes('error/404') || html.includes('Page Not Found')) {
+            if (html.includes('error/404') || html.includes('Page Not Found') || html.includes('id="error-notice"')) {
                 continue;
             }
             
             let title = '';
             const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
             if (titleMatch) {
-                title = titleMatch[1].replace(/ - AliExpress.*$/i, '').replace(/\|.*$/i, '').trim();
-            }
-            
-            // Try multiple image patterns
-            let image_url = null;
-            const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) ||
-                                 html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
-            if (ogImageMatch) {
-                image_url = ogImageMatch[1];
-            }
-            if (!image_url) {
-                const imgMatch = html.match(/"imageUrl":"([^"]+)"/) || html.match(/"mainImageUrl":"([^"]+)"/);
-                if (imgMatch) image_url = imgMatch[1].replace(/\\u002F/g, '/');
+                title = titleMatch[1].replace(/ - AliExpress.*$/i, '').replace(/\|.*$/i, '').replace('AliExpress', '').trim();
             }
 
-            // Try multiple price patterns
-            let price = null;
-            const pricePatterns = [
-                /"formattedPrice":"([^"]+)"/,
-                /"priceText":"([^"]+)"/,
-                /"minPrice":"([^"]+)"/,
-                /"salePrice":\{"formatedAmount":"([^"]+)"/,
-                /"amount":"([^"]+)"/
+            // Enhanced Scraping for JSON data in HTML
+            const jsonPatterns = [
+                /window\.runParams\s*=\s*(\{.+?\});/s,
+                /_expDataLayer\.push\((\{.+?\})\);/s,
+                /data:\s*(\{.+?\}),\s*serverTime/s
             ];
-            for (const pattern of pricePatterns) {
+
+            for (const pattern of jsonPatterns) {
                 const match = html.match(pattern);
                 if (match) {
-                    price = match[1];
-                    break;
+                    try {
+                        const jsonData = JSON.parse(match[1]);
+                        // Extract from common structures
+                        const itemDetail = jsonData.productInfoComponent || jsonData.data?.productInfoComponent;
+                        if (itemDetail) {
+                            return {
+                                title: itemDetail.subject || title,
+                                image_url: itemDetail.mainImage || null,
+                                price: itemDetail.price || "راجع الرابط"
+                            };
+                        }
+                    } catch (e) {}
                 }
             }
 
