@@ -109,8 +109,8 @@
         </div>
         
         <div class="preview-card">
-            <div class="preview-title">معاينة الرسالة</div>
-            <div class="preview-content" id="messagePreview">ابدأ بإدخال البيانات لمعاينة الرسالة...</div>
+            <div class="preview-title">معاينة الرسالة (قابلة للتعديل)</div>
+            <textarea id="messagePreview" style="width: 100%; min-height: 200px; background: transparent; border: none; color: #fff; font-family: inherit; font-size: 13px; line-height: 1.8; direction: rtl; resize: vertical; padding: 0; overflow: hidden;" spellcheck="false"></textarea>
         </div>
         
         <button class="publish-btn" id="publishBtn">
@@ -195,8 +195,16 @@
         }
 
         function updatePreview() {
-            messagePreview.textContent = generateMessage();
+            messagePreview.value = generateMessage();
+            autoResizePreview();
         }
+
+        function autoResizePreview() {
+            messagePreview.style.height = 'auto';
+            messagePreview.style.height = (messagePreview.scrollHeight) + 'px';
+        }
+
+        messagePreview.oninput = autoResizePreview;
 
         imageUpload.onchange = (e) => {
             const file = e.target.files[0];
@@ -309,7 +317,8 @@
                         coupon: couponCode.value || null,
                         image: imageToSend,
                         settings: settings,
-                        credentials: credentials
+                        credentials: credentials,
+                        customMessage: messagePreview.value // Send edited message
                     })
                 });
 
@@ -328,7 +337,7 @@
         };
 
         copyMsgBtn.onclick = () => {
-            const msg = generateMessage();
+            const msg = messagePreview.value; // Copy edited message
             navigator.clipboard.writeText(msg).then(() => {
                 showToast('تم نسخ نص المنشور ✅', 'success');
             });
@@ -377,7 +386,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        message: generateMessage(),
+                        message: messagePreview.value, // Use edited message
                         image: imageToSend,
                         scheduledTime: new Date(scheduledTime.value).toISOString(),
                         credentials: credentials
