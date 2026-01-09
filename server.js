@@ -13,8 +13,9 @@ const app = express();
 const postScheduler = new PostScheduler();
 postScheduler.start();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "AIzaSyDgnzaP_OxtF8jNNh9THj0-nWQ64tusKyw");
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const geminiApiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
+const model = genAI ? genAI.getGenerativeModel({ model: "gemini-1.5-flash" }) : null;
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -288,6 +289,11 @@ app.post('/api/ai-refine-title', async (req, res) => {
     const { title } = req.body;
     if (!title) return res.status(400).json({ success: false, error: 'العنوان مطلوب' });
 
+    if (!model) {
+      console.error('Refine error: GEMINI_API_KEY not configured');
+      return res.status(500).json({ success: false, error: 'مفتاح API غير متوفر - يرجى إضافة GEMINI_API_KEY' });
+    }
+
     const prompt = `You are a helpful marketing assistant. Your task is to refine product titles from AliExpress to be more attractive and professional while keeping them in the SAME LANGUAGE as the input. Keep the output concise and engaging. Only return the refined title. Input title: ${title}`;
     
     const result = await model.generateContent(prompt);
@@ -296,8 +302,8 @@ app.post('/api/ai-refine-title', async (req, res) => {
 
     res.json({ success: true, refinedTitle: refinedTitle || title });
   } catch (error) {
-    console.error('Refine error:', error);
-    res.status(500).json({ success: false, error: 'فشل تحسين العنوان' });
+    console.error('Refine error:', error.message || error);
+    res.status(500).json({ success: false, error: 'فشل تحسين العنوان - تحقق من مفتاح API' });
   }
 });
 
