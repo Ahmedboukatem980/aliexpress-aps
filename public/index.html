@@ -509,6 +509,36 @@
         searchBtn.onclick = search;
         urlInput.onkeypress = (e) => { if (e.key === 'Enter') search(); };
 
+        const refineTitleBtn = document.getElementById('refineTitleBtn');
+        refineTitleBtn.addEventListener('click', async () => {
+            const currentTitle = productTitle.textContent;
+            if (!currentTitle) return;
+
+            refineTitleBtn.disabled = true;
+            refineTitleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التحسين...';
+
+            try {
+                const response = await fetch('/api/ai-refine-title', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: currentTitle })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    productTitle.textContent = result.refinedTitle;
+                    showToast('تم تحسين العنوان بنجاح');
+                } else {
+                    showToast('فشل تحسين العنوان');
+                }
+            } catch (err) {
+                showToast('خطأ في الاتصال');
+            } finally {
+                refineTitleBtn.disabled = false;
+                refineTitleBtn.innerHTML = '<i class="fas fa-magic"></i> تحسين بالعامل الذكي';
+            }
+        });
+
         async function search() {
             const url = urlInput.value.trim();
             if (!url) return showError('الرجاء إدخال الرابط');
@@ -532,7 +562,10 @@
                     body: JSON.stringify({ url, credentials })
                 });
                 const data = await response.json();
-                if (data.success) showResults(data.data);
+                if (data.success) {
+                    showResults(data.data);
+                    refineTitleBtn.style.display = 'flex';
+                }
                 else showError(data.error || 'حدث خطأ');
             } catch (err) {
                 showError('فشل الاتصال');

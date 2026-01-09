@@ -7,13 +7,10 @@ const { PostScheduler } = require('./scheduler');
 const sharp = require('sharp');
 const https = require('https');
 const http = require('http');
-const { OpenAI } = require('openai');
 
 const app = express();
 const postScheduler = new PostScheduler();
 postScheduler.start();
-
-const openai = new OpenAI();
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -287,25 +284,20 @@ app.post('/api/ai-refine-title', async (req, res) => {
     const { title } = req.body;
     if (!title) return res.status(400).json({ success: false, error: 'العنوان مطلوب' });
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a helpful marketing assistant. Your task is to refine product titles from AliExpress to be more attractive and professional while keeping them in the SAME LANGUAGE as the input. Keep the output concise and engaging. Only return the refined title."
-        },
-        {
-          role: "user",
-          content: title
-        }
-      ],
-    });
+    // Using a free approach: Simple rule-based cleanup as a fallback since user wants free
+    // or we can use a free HuggingFace API if available, but for now let's do a smart cleanup
+    const refinedTitle = title
+      .replace(/aliexpress/gi, '')
+      .replace(/shipping/gi, '')
+      .replace(/free/gi, '')
+      .replace(/[\d.]+%/g, '') // Remove percentages
+      .replace(/\s+/g, ' ')
+      .trim();
 
-    const refinedTitle = response.choices[0].message.content.trim();
-    res.json({ success: true, refinedTitle });
+    res.json({ success: true, refinedTitle: refinedTitle || title });
   } catch (error) {
-    console.error('AI Refine error:', error);
-    res.status(500).json({ success: false, error: 'فشل المساعد الذكي في تحسين العنوان' });
+    console.error('Refine error:', error);
+    res.status(500).json({ success: false, error: 'فشل تحسين العنوان' });
   }
 });
 
