@@ -15,7 +15,7 @@ postScheduler.start();
 
 const geminiApiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
-const model = genAI ? genAI.getGenerativeModel({ model: "gemini-2.0-flash" }) : null;
+const model = genAI ? genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" }) : null;
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -284,6 +284,36 @@ app.post('/api/schedule-post', (req, res) => {
   }
 });
 
+// Simple title cleanup function (fallback when AI is unavailable)
+function cleanupTitle(title) {
+  let cleaned = title
+    .replace(/\s+/g, ' ')
+    .replace(/[,]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  
+  // Remove common AliExpress junk patterns
+  const junkPatterns = [
+    /\bfor\s+(men|women|kids|boys|girls|ladies)\b/gi,
+    /\b(new|hot|sale|2024|2025|2026)\b/gi,
+    /\b(high quality|free shipping|fast shipping)\b/gi,
+    /\d+\s*(pcs|pieces|pack|set)\b/gi,
+  ];
+  
+  junkPatterns.forEach(pattern => {
+    cleaned = cleaned.replace(pattern, '').trim();
+  });
+  
+  cleaned = cleaned.replace(/\s{2,}/g, ' ').trim();
+  
+  // Capitalize first letter
+  if (cleaned.length > 0) {
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+  
+  return cleaned;
+}
+
 app.post('/api/ai-refine-title', async (req, res) => {
   try {
     const { title } = req.body;
@@ -296,24 +326,38 @@ app.post('/api/ai-refine-title', async (req, res) => {
     let localModel = model;
     if (!localModel && currentApiKey) {
       const localGenAI = new GoogleGenerativeAI(currentApiKey);
-      localModel = localGenAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      localModel = localGenAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
     }
 
+    // If no AI model available, use simple cleanup
     if (!localModel) {
-      console.error('Refine error: GEMINI_API_KEY not configured');
-      return res.status(500).json({ success: false, error: 'مفتاح API غير متوفر - يرجى إضافة GEMINI_API_KEY' });
+      const cleanedTitle = cleanupTitle(title);
+      return res.json({ success: true, refinedTitle: cleanedTitle, method: 'fallback' });
     }
 
-    const prompt = `You are a helpful marketing assistant. Your task is to refine product titles from AliExpress to be more attractive and professional while keeping them in the SAME LANGUAGE as the input. Keep the output concise and engaging. Only return the refined title. Input title: ${title}`;
-    
-    const result = await localModel.generateContent(prompt);
-    const response = await result.response;
-    const refinedTitle = response.text().trim();
+    try {
+      const prompt = `You are a helpful marketing assistant. Your task is to refine product titles from AliExpress to be more attractive and professional while keeping them in the SAME LANGUAGE as the input. Keep the output concise and engaging. Only return the refined title. Input title: ${title}`;
+      
+      const result = await localModel.generateContent(prompt);
+      const response = await result.response;
+      const refinedTitle = response.text().trim();
 
-    res.json({ success: true, refinedTitle: refinedTitle || title });
+      res.json({ success: true, refinedTitle: refinedTitle || title, method: 'ai' });
+    } catch (aiError) {
+      // If AI fails (quota exceeded, etc.), use fallback
+      console.log('AI failed, using fallback:', aiError.message);
+      const cleanedTitle = cleanupTitle(title);
+      res.json({ success: true, refinedTitle: cleanedTitle, method: 'fallback' });
+    }
   } catch (error) {
     console.error('Refine error:', error.message || error);
-    res.status(500).json({ success: false, error: `فشل تحسين العنوان: ${error.message || 'خطأ غير معروف'}` });
+    // Even on error, try to return something useful
+    const cleanedTitle = cleanupTitle(req.body.title || '');
+    if (cleanedTitle) {
+      res.json({ success: true, refinedTitle: cleanedTitle, method: 'fallback' });
+    } else {
+      res.status(500).json({ success: false, error: 'فشل تحسين العنوان' });
+    }
   }
 });
 
