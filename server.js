@@ -336,7 +336,18 @@ app.post('/api/ai-refine-title', async (req, res) => {
     }
 
     try {
-      const prompt = `You are a helpful marketing assistant. Your task is to refine product titles from AliExpress to be more attractive and professional while keeping them in the SAME LANGUAGE as the input. Keep the output concise and engaging. Only return the refined title. Input title: ${title}`;
+      const prompt = `You are a professional marketing expert specialized in AliExpress deals for the Algerian market.
+Your task is to refine the product title to be more attractive, professional, and engaging for Telegram channel users.
+
+CRITICAL RULES:
+1. Keep the output in the EXACT SAME LANGUAGE as the input title.
+2. Remove junk words (e.g., Global Version, 2024, 2025, Free Shipping, AliExpress, etc.).
+3. Focus on the core product name and its most important feature.
+4. Keep it concise (max 7-10 words).
+5. Do NOT add emojis.
+6. Only return the refined title text.
+
+Input title: ${title}`;
       
       const result = await localModel.generateContent(prompt);
       const response = await result.response;
