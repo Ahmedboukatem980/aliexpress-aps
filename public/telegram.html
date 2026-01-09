@@ -54,7 +54,12 @@
         
         <div class="form-group">
             <label>اسم المنتج:</label>
-            <input type="text" id="productTitle" placeholder="أدخل اسم المنتج...">
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="productTitle" placeholder="أدخل اسم المنتج..." style="flex: 1;">
+                <button type="button" id="refineTitleBtn" style="padding: 12px 15px; background: #673AB7; border: none; border-radius: 10px; color: #fff; font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+                    <i class="fas fa-magic"></i> تحسين
+                </button>
+            </div>
         </div>
         
         <div class="form-group">
@@ -164,7 +169,41 @@
         const framedImageData = document.getElementById('framedImageData');
         const imageUpload = document.getElementById('imageUpload');
         const toast = document.getElementById('toast');
+        const refineTitleBtn = document.getElementById('refineTitleBtn');
         let isFramed = false;
+
+        refineTitleBtn.onclick = async () => {
+            const currentTitle = productTitle.value.trim();
+            if (!currentTitle) {
+                showToast('الرجاء إدخال اسم المنتج أولاً', 'error');
+                return;
+            }
+
+            refineTitleBtn.disabled = true;
+            refineTitleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+            try {
+                const res = await fetch('/api/ai-refine-title', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: currentTitle })
+                });
+                const result = await res.json();
+                
+                if (result.success) {
+                    productTitle.value = result.refinedTitle;
+                    updatePreview();
+                    showToast('تم تحسين العنوان بنجاح ✅', 'success');
+                } else {
+                    showToast(result.error || 'فشل تحسين العنوان', 'error');
+                }
+            } catch (e) {
+                showToast('خطأ في الاتصال', 'error');
+            } finally {
+                refineTitleBtn.disabled = false;
+                refineTitleBtn.innerHTML = '<i class="fas fa-magic"></i> تحسين';
+            }
+        };
 
         function updateChannelBadges() {
             const choice = channelSelect.value;
