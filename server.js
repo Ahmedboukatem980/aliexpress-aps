@@ -15,7 +15,7 @@ postScheduler.start();
 
 const geminiApiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
-const model = genAI ? genAI.getGenerativeModel({ model: "gemini-1.5-flash" }) : null;
+const model = genAI ? genAI.getGenerativeModel({ model: "gemini-2.0-flash" }) : null;
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -296,7 +296,7 @@ app.post('/api/ai-refine-title', async (req, res) => {
     let localModel = model;
     if (!localModel && currentApiKey) {
       const localGenAI = new GoogleGenerativeAI(currentApiKey);
-      localModel = localGenAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      localModel = localGenAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     }
 
     if (!localModel) {
