@@ -13,7 +13,7 @@ const app = express();
 const postScheduler = new PostScheduler();
 postScheduler.start();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "AIzaSyDgnzaP_OxtF8jNNh9THj0-nWQ64tusKyw");
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 app.use(cors());
