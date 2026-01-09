@@ -7,10 +7,13 @@ const { PostScheduler } = require('./scheduler');
 const sharp = require('sharp');
 const https = require('https');
 const http = require('http');
+const { OpenAI } = require('openai');
 
 const app = express();
 const postScheduler = new PostScheduler();
 postScheduler.start();
+
+const openai = new OpenAI();
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -276,6 +279,33 @@ app.post('/api/schedule-post', (req, res) => {
     res.json({ success: true, post });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/ai-refine-title', async (req, res) => {
+  try {
+    const { title } = req.body;
+    if (!title) return res.status(400).json({ success: false, error: 'العنوان مطلوب' });
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are a helpful marketing assistant. Your task is to refine product titles from AliExpress to be more attractive and professional while keeping them in the SAME LANGUAGE as the input. Keep the output concise and engaging. Only return the refined title."
+        },
+        {
+          role: "user",
+          content: title
+        }
+      ],
+    });
+
+    const refinedTitle = response.choices[0].message.content.trim();
+    res.json({ success: true, refinedTitle });
+  } catch (error) {
+    console.error('AI Refine error:', error);
+    res.status(500).json({ success: false, error: 'فشل المساعد الذكي في تحسين العنوان' });
   }
 });
 
