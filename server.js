@@ -353,7 +353,17 @@ Input title: ${title}`;
       const response = await result.response;
       const refinedTitle = response.text().trim();
 
-      res.json({ success: true, refinedTitle: refinedTitle || title, method: 'ai' });
+      // NEW: Generate hook in the same request to save quota and time
+      let hook = "";
+      try {
+        const hookPrompt = `Write ONE short, catchy opening line (hook) in Algerian Darija (Arabic script) for this product: ${refinedTitle}. No emojis, one line only.`;
+        const hookResult = await localModel.generateContent(hookPrompt);
+        hook = hookResult.response.text().trim();
+      } catch (e) {
+        hook = fallbackHooks[Math.floor(Math.random() * fallbackHooks.length)];
+      }
+
+      res.json({ success: true, refinedTitle: refinedTitle || title, hook: hook, method: 'ai' });
     } catch (aiError) {
       // If AI fails (quota exceeded, etc.), use fallback
       console.log('AI failed, using fallback:', aiError.message);
