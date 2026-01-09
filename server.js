@@ -289,21 +289,31 @@ app.post('/api/ai-refine-title', async (req, res) => {
     const { title } = req.body;
     if (!title) return res.status(400).json({ success: false, error: 'العنوان مطلوب' });
 
-    if (!model) {
+    // Re-check for API key in case it was just added to environment
+    const currentApiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    
+    // Local model instance to ensure we use the latest env vars
+    let localModel = model;
+    if (!localModel && currentApiKey) {
+      const localGenAI = new GoogleGenerativeAI(currentApiKey);
+      localModel = localGenAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    }
+
+    if (!localModel) {
       console.error('Refine error: GEMINI_API_KEY not configured');
       return res.status(500).json({ success: false, error: 'مفتاح API غير متوفر - يرجى إضافة GEMINI_API_KEY' });
     }
 
     const prompt = `You are a helpful marketing assistant. Your task is to refine product titles from AliExpress to be more attractive and professional while keeping them in the SAME LANGUAGE as the input. Keep the output concise and engaging. Only return the refined title. Input title: ${title}`;
     
-    const result = await model.generateContent(prompt);
+    const result = await localModel.generateContent(prompt);
     const response = await result.response;
     const refinedTitle = response.text().trim();
 
     res.json({ success: true, refinedTitle: refinedTitle || title });
   } catch (error) {
     console.error('Refine error:', error.message || error);
-    res.status(500).json({ success: false, error: 'فشل تحسين العنوان - تحقق من مفتاح API' });
+    res.status(500).json({ success: false, error: `فشل تحسين العنوان: ${error.message || 'خطأ غير معروف'}` });
   }
 });
 
