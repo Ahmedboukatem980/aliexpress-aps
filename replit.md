@@ -33,6 +33,10 @@ npm start
 - Publish offers to Telegram channels
 - Schedule posts for later
 - PWA support for mobile installation
+- **Discover Winning Products** - Search for hot products using AliExpress API with optional Gemini AI ranking
+  - AI-powered keyword suggestions for Algerian market
+  - Product analysis with AI scoring and hooks in Algerian dialect
+  - Fallback mode works without Gemini API key
 
 ## Environment Variables (Optional)
 - `TELEGRAM_BOT_TOKEN` - Telegram bot token
