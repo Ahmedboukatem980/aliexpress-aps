@@ -326,10 +326,16 @@
         };
 
         frameBtn.onclick = async () => {
-            const imageUrl = productImage.value;
-            if (!imageUrl) {
-                showToast('الرجاء إدخال رابط الصورة أولاً', 'error');
-                return;
+            const imageUrl = isFramed && framedImageData.value ? framedImageData.value : productImage.value;
+            if (!imageUrl || imageUrl === 'صورة محملة يدوياً') {
+                // If it's a manually uploaded image but framedImageData is empty for some reason
+                // though it shouldn't be based on the upload handler
+                if (isFramed && framedImageData.value) {
+                    // correct
+                } else {
+                    showToast('الرجاء إدخال رابط الصورة أو رفع صورة أولاً', 'error');
+                    return;
+                }
             }
 
             frameBtn.disabled = true;

@@ -73,7 +73,16 @@ app.post('/api/frame-image', async (req, res) => {
     const { imageUrl } = req.body;
     if (!imageUrl) return res.status(400).json({ success: false, error: 'يرجى إرسال رابط الصورة' });
 
-    const productImageBuffer = await downloadImage(imageUrl);
+    let productImageBuffer;
+    if (imageUrl.startsWith('data:image')) {
+      // Handle base64 uploaded image
+      const base64Data = imageUrl.replace(/^data:image\/\w+;base64,/, '');
+      productImageBuffer = Buffer.from(base64Data, 'base64');
+    } else {
+      // Handle remote URL
+      productImageBuffer = await downloadImage(imageUrl);
+    }
+    
     const framePath = path.join(__dirname, 'public', 'frame.jpg');
     const customFramePath = path.join(__dirname, 'public', 'custom_frame.jpg');
     const useFramePath = fs.existsSync(customFramePath) ? customFramePath : framePath;
