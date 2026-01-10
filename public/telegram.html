@@ -268,12 +268,12 @@
             const hook = algerianHook.value;
 
             let message = '';
-            if (hook) message += `${hook}\n\n`;
-            message += `${s.prefix} ${title}\n\n`;
-            message += `${s.salePrice} ${salePriceVal}\n\n`;
-            message += `${s.linkText}\n${link}\n\n`;
-            if (coupon) message += `${s.couponText} ${coupon}\n\n`;
-            message += `${s.footer}\n🔗 ${s.botLink}\n\n${s.hashtags}`;
+            if (hook) message += `${hook}\n`;
+            message += `${s.prefix} ${title}\n`;
+            message += `${s.salePrice} ${salePriceVal}\n`;
+            message += `${s.linkText}\n${link}\n`;
+            if (coupon) message += `${s.couponText} ${coupon}\n`;
+            message += `${s.footer}\n🔗 ${s.botLink}\n${s.hashtags}`;
             
             return message;
         }
