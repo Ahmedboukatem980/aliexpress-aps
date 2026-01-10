@@ -371,43 +371,22 @@
     <div class="toast" id="toast"></div>
 
     <script>
-        // Use current logic but adapt it to new UI structure
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
             document.getElementById('installPrompt').classList.add('show');
-            document.getElementById('mainInstallBtn').style.display = 'flex';
         });
 
         async function installApp() {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') {
-                    console.log('User accepted the install prompt');
-                    const toast = document.getElementById('toast');
-                    toast.textContent = "جاري إضافة التطبيق إلى الشاشة الرئيسية...";
-                    toast.classList.add('show');
-                    setTimeout(() => toast.classList.remove('show'), 3000);
-                }
                 deferredPrompt = null;
                 document.getElementById('installPrompt').classList.remove('show');
-                document.getElementById('mainInstallBtn').style.opacity = '0.5';
             } else {
-                // If it's an Android device and not in standalone mode, it might be possible to trigger the prompt via a user gesture 
-                // but usually, we just have to wait for the event.
-                // However, many users prefer a direct "Download" feeling.
-                // Since this is a PWA, we can't "download" an APK directly unless we have one.
-                // I will update the message to be more direct.
-                const toast = document.getElementById('toast');
-                toast.textContent = "يرجى الضغط على (تثبيت التطبيق) من قائمة المتصفح العلوية";
-                toast.classList.add('show');
-                setTimeout(() => toast.classList.remove('show'), 4000);
+                showToast("يرجى التثبيت من قائمة المتصفح");
             }
         }
-
-        document.getElementById('installBtn').onclick = installApp;
 
         const defaultSettings = {
             prefix: '📢تخفيض لـ',
@@ -427,73 +406,59 @@
         };
 
         let settings = JSON.parse(localStorage.getItem('appSettings')) || { ...defaultSettings };
+        
+        function getSettings() { return settings; }
 
         function openSettings() {
-            Object.keys(settings).forEach(key => {
-                const el = document.getElementById('setting' + key.charAt(0).toUpperCase() + key.slice(1));
-                if (el) el.value = settings[key] || '';
-            });
+            document.getElementById('settingPrefix').value = settings.prefix || '';
+            document.getElementById('settingSalePrice').value = settings.salePrice || '';
+            document.getElementById('settingLinkText').value = settings.linkText || '';
+            document.getElementById('settingCouponText').value = settings.couponText || '';
+            document.getElementById('settingFooter').value = settings.footer || '';
+            document.getElementById('settingBotLink').value = settings.botLink || '';
+            document.getElementById('settingHashtags').value = settings.hashtags || '';
+            document.getElementById('settingWarning').value = settings.warning || '';
+            document.getElementById('settingBotToken').value = settings.telegramToken || '';
+            document.getElementById('settingChannelId').value = settings.channelId || '';
+            document.getElementById('settingChannelId2').value = settings.channelId2 || '';
+            document.getElementById('settingCook').value = settings.cook || '';
+            document.getElementById('settingAppKey').value = settings.appKey || '';
+            document.getElementById('settingAppSecret').value = settings.appSecret || '';
             document.getElementById('settingsModal').classList.add('show');
         }
 
-        function closeSettings() {
-            document.getElementById('settingsModal').classList.remove('show');
-        }
+        function closeSettings() { document.getElementById('settingsModal').classList.remove('show'); }
 
         function saveSettings() {
-            // ... existing logic
-            const newSettings = {};
-            Object.keys(defaultSettings).forEach(key => {
-                const el = document.getElementById('setting' + key.charAt(0).toUpperCase() + key.slice(1));
-                if (el) newSettings[key] = el.value || defaultSettings[key];
-            });
-            settings = newSettings;
+            settings.prefix = document.getElementById('settingPrefix').value;
+            settings.salePrice = document.getElementById('settingSalePrice').value;
+            settings.linkText = document.getElementById('settingLinkText').value;
+            settings.couponText = document.getElementById('settingCouponText').value;
+            settings.footer = document.getElementById('settingFooter').value;
+            settings.botLink = document.getElementById('settingBotLink').value;
+            settings.hashtags = document.getElementById('settingHashtags').value;
+            settings.warning = document.getElementById('settingWarning').value;
+            settings.telegramToken = document.getElementById('settingBotToken').value;
+            settings.channelId = document.getElementById('settingChannelId').value;
+            settings.channelId2 = document.getElementById('settingChannelId2').value;
+            settings.cook = document.getElementById('settingCook').value;
+            settings.appKey = document.getElementById('settingAppKey').value;
+            settings.appSecret = document.getElementById('settingAppSecret').value;
+            
             localStorage.setItem('appSettings', JSON.stringify(settings));
             document.getElementById('warningText').textContent = settings.warning;
-            
-            // Handle frame upload if any
-            const frameFile = document.getElementById('frameUpload').files[0];
-            if (frameFile) {
-                const formData = new FormData();
-                formData.append('frame', frameFile);
-                fetch('/api/upload-frame', {
-                    method: 'POST',
-                    body: formData
-                }).then(res => res.json()).then(data => {
-                    if (data.success) {
-                        document.getElementById('currentFramePreview').src = '/custom_frame.jpg?t=' + Date.now();
-                        showToast('تم حفظ الإعدادات وتغيير الإطار ✅');
-                    }
-                });
-            } else {
-                closeSettings();
-                showToast('تم حفظ الإعدادات ✅');
-            }
+            closeSettings();
+            showToast('تم حفظ الإعدادات');
         }
 
-        document.getElementById('frameUpload').onchange = function(e) {
-            if (e.target.files && e.target.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    document.getElementById('currentFramePreview').src = event.target.result;
-                };
-                reader.readAsDataURL(e.target.files[0]);
-            }
-        };
-
-        // Initialize frame preview
-        fetch('/custom_frame.jpg').then(res => {
-            if (res.ok) document.getElementById('currentFramePreview').src = '/custom_frame.jpg';
-        });
-
-        function resetSettings() {
-            settings = { ...defaultSettings };
-            localStorage.setItem('appSettings', JSON.stringify(settings));
-            openSettings();
-            showToast('تمت الاستعادة');
-        }
-
-        document.getElementById('warningText').textContent = settings.warning;
+        let currentProductData = null;
+        const linkTypes = [
+            { key: 'coin', title: 'تخفيض العملات', icon: 'fa-coins' },
+            { key: 'point', title: 'رابط العملات', icon: 'fa-star' },
+            { key: 'super', title: 'السوبر ديلز', icon: 'fa-bolt' },
+            { key: 'limit', title: 'العرض المحدود', icon: 'fa-clock' },
+            { key: 'bundle', title: 'Bundle Deals', icon: 'fa-gift' }
+        ];
 
         const urlInput = document.getElementById('urlInput');
         const searchBtn = document.getElementById('searchBtn');
@@ -513,269 +478,124 @@
         const couponInput = document.getElementById('couponInput');
         const publishBtn = document.getElementById('publishBtn');
         const aiWriteBtn = document.getElementById('aiWriteBtn');
+        const aiPreview = document.getElementById('aiPreview');
 
-        // AI Content Writer
         aiWriteBtn.onclick = async () => {
-            if (!currentProduct) {
-                showToast("يرجى البحث عن منتج أولاً");
-                return;
-            }
-
-            const originalBtnText = aiWriteBtn.innerHTML;
+            if (!currentProductData) return showToast("يرجى البحث عن منتج أولاً");
             aiWriteBtn.disabled = true;
             aiWriteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التأليف...';
-
             try {
-                const response = await fetch('/api/analyze-product', {
+                const res = await fetch('/api/analyze-product', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        title: currentProduct.title,
-                        price: currentProduct.price,
+                        title: currentProductData.title,
+                        price: currentProductData.price,
                         category: 'general'
                     })
                 });
-
-                const data = await response.json();
+                const data = await res.json();
                 if (data.success && data.analysis) {
-                    const settings = getSettings();
-                    const selectedLink = document.getElementById('linkSelect').value || 'رابط المنتج';
-                    const coupon = document.getElementById('couponInput').value;
-                    
-                    let aiText = `${settings.prefix} ${currentProduct.title}\n\n`;
-                    aiText += `🔥 ${data.analysis.hook}\n\n`;
-                    
-                    aiText += `${settings.salePrice} ${currentProduct.price}\n`;
-                    if (coupon) aiText += `${settings.couponText} ${coupon}\n`;
-                    aiText += `\n${settings.linkText} ${selectedLink}\n\n`;
-                    aiText += `${settings.footer}\n\n`;
-                    aiText += `${settings.hashtags}`;
-
-                    // Show in preview area
-                    const aiPreview = document.getElementById('aiPreview');
-                    aiPreview.value = aiText;
-                    
-                    // Auto-fill footer or just show preview? Let's just update a preview if we had one
-                    // For now, let's copy to clipboard and show toast
-                    await navigator.clipboard.writeText(aiText);
-                    showToast("تم تأليف المنشور ونسخه للحافظة! ✨");
+                    const selectedLink = linkSelect.value || 'رابط المنتج';
+                    const coupon = couponInput.value;
+                    let text = `${settings.prefix} ${currentProductData.title}\n\n🔥 ${data.analysis.hook}\n\n${settings.salePrice} ${currentProductData.price}\n`;
+                    if (coupon) text += `${settings.couponText} ${coupon}\n`;
+                    text += `\n${settings.linkText} ${selectedLink}\n\n${settings.footer}\n\n${settings.hashtags}`;
+                    aiPreview.value = text;
+                    await navigator.clipboard.writeText(text);
+                    showToast("تم التأليف والنسخ! ✨");
                 }
-            } catch (err) {
-                console.error(err);
-                showToast("فشل توليد المحتوى");
-            } finally {
-                aiWriteBtn.disabled = false;
-                aiWriteBtn.innerHTML = originalBtnText;
-            }
+            } catch (err) { showToast("فشل التأليف"); }
+            finally { aiWriteBtn.disabled = false; aiWriteBtn.innerHTML = '<i class="fas fa-robot"></i> كاتب المحتوى الآلي (AI)'; }
         };
-
-        let currentProductData = null;
-        const linkTypes = [
-            { key: 'coin', title: 'تخفيض العملات', icon: 'fa-coins' },
-            { key: 'point', title: 'رابط العملات', icon: 'fa-star' },
-            { key: 'super', title: 'السوبر ديلز', icon: 'fa-bolt' },
-            { key: 'limit', title: 'العرض المحدود', icon: 'fa-clock' },
-            { key: 'bundle', title: 'Bundle Deals', icon: 'fa-gift' }
-        ];
 
         searchBtn.onclick = search;
         urlInput.onkeypress = (e) => { if (e.key === 'Enter') search(); };
 
-        const refineTitleBtn = document.getElementById('refineTitleBtn');
-        refineTitleBtn.addEventListener('click', async () => {
-            const currentTitle = productTitle.textContent;
-            if (!currentTitle) return;
-
-            refineTitleBtn.disabled = true;
-            refineTitleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التحسين...';
-
-            try {
-                const response = await fetch('/api/ai-refine-title', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: currentTitle })
-                });
-                const result = await response.json();
-                
-                if (result.success) {
-                    productTitle.textContent = result.refinedTitle;
-                    showToast('تم تحسين العنوان بنجاح');
-                } else {
-                    showToast('فشل تحسين العنوان');
-                }
-            } catch (err) {
-                showToast('خطأ في الاتصال');
-            } finally {
-                refineTitleBtn.disabled = false;
-                refineTitleBtn.innerHTML = '<i class="fas fa-magic"></i> تحسين بالعامل الذكي';
-            }
-        });
-
         async function search() {
             const url = urlInput.value.trim();
             if (!url) return showError('الرجاء إدخال الرابط');
-            if (!url.includes('aliexpress.com')) return showError('رابط AliExpress فقط');
-
             errorMsg.classList.remove('show');
             results.classList.remove('show');
             emptyState.style.display = 'none';
             loading.classList.add('show');
             searchBtn.disabled = true;
-
             try {
-                const credentials = {
-                    cook: settings.cook || '',
-                    appKey: settings.appKey || '',
-                    appSecret: settings.appSecret || ''
-                };
-                const response = await fetch('/api/affiliate?t=' + Date.now(), {
+                const response = await fetch('/api/affiliate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url, credentials })
+                    body: JSON.stringify({ url, credentials: { cook: settings.cook, appKey: settings.appKey, appSecret: settings.appSecret } })
                 });
                 const data = await response.json();
-                if (data.success) {
-                    showResults(data.data);
-                    refineTitleBtn.style.display = 'flex';
-                }
+                if (data.success) showResults(data.data);
                 else showError(data.error || 'حدث خطأ');
-            } catch (err) {
-                showError('فشل الاتصال');
-            } finally {
-                loading.classList.remove('show');
-                searchBtn.disabled = false;
-            }
-        }
-
-        function showError(msg) {
-            errorMsg.textContent = msg;
-            errorMsg.classList.add('show');
+            } catch (err) { showError('فشل الاتصال'); }
+            finally { loading.classList.remove('show'); searchBtn.disabled = false; }
         }
 
         function showResults(data) {
             currentProductData = data;
             productImage.src = data.image || '';
             productTitle.textContent = data.title || '';
-            productPrice.textContent = data.price ? `${data.price} ${data.currency || ''}` : '';
+            productPrice.textContent = `${data.price} ${data.currency || ''}`;
+            productOriginalPrice.textContent = data.original_price ? `${data.original_price} ${data.currency || ''}` : '';
+            productOriginalPrice.style.display = data.original_price ? 'block' : 'none';
+            productDiscount.textContent = data.discount ? `-${data.discount}%` : '';
+            productDiscount.style.display = data.discount ? 'inline-block' : 'none';
             
-            if (data.original_price && data.original_price !== data.price) {
-                productOriginalPrice.textContent = `${data.original_price} ${data.currency || ''}`;
-                productOriginalPrice.style.display = 'block';
-            } else productOriginalPrice.style.display = 'none';
-
-            if (data.discount) {
-                productDiscount.textContent = `-${data.discount}%`;
-                productDiscount.style.display = 'inline-block';
-            } else productDiscount.style.display = 'none';
-
-            let infoHtml = '';
-            if (data.shop_name) infoHtml += `<span><i class="fas fa-store"></i> ${data.shop_name}</span>`;
-            if (data.rating) infoHtml += `<span><i class="fas fa-star"></i> ${data.rating}</span>`;
-            if (data.orders) infoHtml += `<span><i class="fas fa-shopping-cart"></i> ${data.orders} طلب</span>`;
-            productInfo.innerHTML = infoHtml;
-
             linksContainer.innerHTML = '';
             linkSelect.innerHTML = '<option value="">-- اختر الرابط --</option>';
-
             linkTypes.forEach(type => {
                 const link = data.links[type.key];
                 if (link) {
                     linkSelect.innerHTML += `<option value="${link}">${type.title}</option>`;
-                    linksContainer.innerHTML += `
-                        <div class="link-card">
-                            <div class="link-header"><span>${type.title}</span><i class="fas ${type.icon}"></i></div>
-                            <div class="link-text">${link}</div>
-                            <div class="link-actions">
-                                <button class="action-btn open-btn" onclick="window.open('${link}', '_blank')"><i class="fas fa-external-link-alt"></i> فتح</button>
-                                <button class="action-btn copy-btn" onclick="copy('${link}')"><i class="fas fa-copy"></i> نسخ</button>
-                                <button class="action-btn tele-btn" onclick="openTelePage('${link}')"><i class="fab fa-telegram-plane"></i> صفحة النشر</button>
-                                <button class="action-btn share-btn" onclick="shareLink('${link}')"><i class="fas fa-share-alt"></i> مشاركة سريعة</button>
-                            </div>
-                        </div>`;
+                    linksContainer.innerHTML += `<div class="link-card">
+                        <div class="link-header"><span>${type.title}</span><i class="fas ${type.icon}"></i></div>
+                        <div class="link-text">${link}</div>
+                        <div class="link-actions">
+                            <button class="action-btn open-btn" onclick="window.open('${link}', '_blank')"><i class="fas fa-external-link-alt"></i> فتح</button>
+                            <button class="action-btn copy-btn" onclick="navigator.clipboard.writeText('${link}').then(() => showToast('تم النسخ'))"><i class="fas fa-copy"></i> نسخ</button>
+                            <button class="action-btn tele-btn" onclick="openTelePage('${link}')">صفحة النشر</button>
+                        </div>
+                    </div>`;
                 }
             });
             results.classList.add('show');
         }
 
-        function copy(text) {
-            navigator.clipboard.writeText(text).then(() => showToast('تم نسخ الرابط ✅'));
-        }
-
         function openTelePage(link) {
-            const data = {
-                title: currentProductData.title,
-                image: currentProductData.image,
-                price: currentProductData.price + ' ' + (currentProductData.currency || ''),
-                link: link
-            };
-            const params = new URLSearchParams(data).toString();
+            const params = new URLSearchParams({ title: currentProductData.title, image: currentProductData.image, price: currentProductData.price, link }).toString();
             window.open('/telegram.html?' + params, '_blank');
         }
 
-        function shareLink(link) {
-            if (navigator.share) {
-                navigator.share({
-                    title: currentProductData.title,
-                    text: `${settings.prefix} ${currentProductData.title}\n${settings.salePrice} ${currentProductData.price} ${currentProductData.currency}\n`,
-                    url: link
-                }).catch(() => {});
-            } else {
-                copy(link);
-                showToast('تم نسخ الرابط (المشاركة غير مدعومة)');
-            }
-        }
-
-        function showToast(msg) {
-            toast.textContent = msg;
-            toast.className = 'toast show';
-            setTimeout(() => toast.className = 'toast', 2500);
-        }
-
+        function showError(msg) { errorMsg.textContent = msg; errorMsg.classList.add('show'); }
+        function showToast(msg) { toast.textContent = msg; toast.className = 'toast show'; setTimeout(() => toast.className = 'toast', 2500); }
         linkSelect.onchange = () => { publishBtn.disabled = !linkSelect.value; };
 
         publishBtn.onclick = async () => {
             const link = linkSelect.value;
-            if (!link) return;
             publishBtn.disabled = true;
-            publishBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري النشر...';
             try {
-                const channelChoice = document.getElementById('channelSelect').value;
-                const credentials = {
-                    telegramToken: settings.telegramToken || '',
-                    channelId: settings.channelId || '',
-                    channelId2: settings.channelId2 || '@AliOffers_Dz',
-                    channelChoice: channelChoice
-                };
                 const res = await fetch('/api/publish-telegram', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         title: currentProductData.title,
-                        price: currentProductData.price + ' ' + (currentProductData.currency || ''),
+                        price: currentProductData.price,
                         link: link,
                         coupon: couponInput.value.trim() || null,
-                        image: currentProductData.image || null,
+                        image: currentProductData.image,
                         settings: settings,
-                        credentials: credentials
+                        credentials: { telegramToken: settings.telegramToken, channelId: settings.channelId, channelId2: settings.channelId2, channelChoice: document.getElementById('channelSelect').value }
                     })
                 });
                 const result = await res.json();
-                if (result.success) { showToast('تم النشر بنجاح! ✅'); couponInput.value = ''; }
-                else showToast(result.error || 'فشل النشر');
-            } catch (e) { showToast('خطأ في الاتصال'); }
-            finally { publishBtn.disabled = false; publishBtn.innerHTML = '<i class="fab fa-telegram"></i> نشر في القناة'; }
+                showToast(result.success ? 'تم النشر! ✅' : 'فشل النشر');
+            } catch (e) { showToast('خطأ'); }
+            finally { publishBtn.disabled = false; }
         };
-
+        
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
-
-        (function checkPendingProduct() {
-            const pendingUrl = localStorage.getItem('pendingProductUrl');
-            if (pendingUrl) {
-                localStorage.removeItem('pendingProductUrl');
-                document.getElementById('urlInput').value = pendingUrl;
-                setTimeout(() => document.getElementById('searchBtn').click(), 500);
-            }
-        })();
     </script>
 </body>
 </html>
