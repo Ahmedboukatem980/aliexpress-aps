@@ -227,6 +227,14 @@
 
             <div class="telegram-section">
                 <h3><i class="fab fa-telegram"></i> نشر سريع في القناة</h3>
+                
+                <div style="background: rgba(156, 39, 176, 0.1); border: 1px dashed #9C27B0; border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+                    <button class="action-btn" id="aiWriteBtn" style="background: #9C27B0; width: 100%; margin-bottom: 10px;">
+                        <i class="fas fa-robot"></i> كاتب المحتوى الآلي (AI)
+                    </button>
+                    <p style="font-size: 11px; color: #aaa; text-align: center;">دعه يكتب لك منشوراً جذاباً بالدارجة الجزائرية!</p>
+                </div>
+
                 <div class="form-group">
                     <label>الرابط المختار:</label>
                     <select id="linkSelect"><option value="">-- اختر الرابط --</option></select>
@@ -497,6 +505,67 @@
         const linkSelect = document.getElementById('linkSelect');
         const couponInput = document.getElementById('couponInput');
         const publishBtn = document.getElementById('publishBtn');
+        const aiWriteBtn = document.getElementById('aiWriteBtn');
+
+        // AI Content Writer
+        aiWriteBtn.onclick = async () => {
+            if (!currentProduct) {
+                showToast("يرجى البحث عن منتج أولاً");
+                return;
+            }
+
+            const originalBtnText = aiWriteBtn.innerHTML;
+            aiWriteBtn.disabled = true;
+            aiWriteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التأليف...';
+
+            try {
+                const response = await fetch('/api/analyze-product', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: currentProduct.title,
+                        price: currentProduct.price,
+                        category: 'general'
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success && data.analysis) {
+                    const settings = getSettings();
+                    const selectedLink = document.getElementById('linkSelect').value || 'رابط المنتج';
+                    const coupon = document.getElementById('couponInput').value;
+                    
+                    let aiText = `${settings.prefix} ${currentProduct.title}\n\n`;
+                    aiText += `🔥 ${data.analysis.hook}\n\n`;
+                    
+                    if (data.analysis.pros && data.analysis.pros.length > 0) {
+                        aiText += `✅ المميزات:\n`;
+                        data.analysis.pros.forEach(pro => aiText += `• ${pro}\n`);
+                        aiText += `\n`;
+                    }
+                    
+                    aiText += `${settings.salePrice} ${currentProduct.price}\n`;
+                    if (coupon) aiText += `${settings.couponText} ${coupon}\n`;
+                    aiText += `\n${settings.linkText} ${selectedLink}\n\n`;
+                    aiText += `${settings.footer}\n\n`;
+                    aiText += `${settings.hashtags}`;
+
+                    // Auto-fill footer or just show preview? Let's just update a preview if we had one
+                    // For now, let's copy to clipboard and show toast
+                    await navigator.clipboard.writeText(aiText);
+                    showToast("تم تأليف المنشور ونسخه للحافظة! ✨");
+                    
+                    // Also alert user with the text
+                    alert("تم توليد المنشور بنجاح:\n\n" + aiText);
+                }
+            } catch (err) {
+                console.error(err);
+                showToast("فشل توليد المحتوى");
+            } finally {
+                aiWriteBtn.disabled = false;
+                aiWriteBtn.innerHTML = originalBtnText;
+            }
+        };
 
         let currentProductData = null;
         const linkTypes = [
