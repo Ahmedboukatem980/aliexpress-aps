@@ -63,9 +63,8 @@
         <div class="form-group">
             <label>مقدمة جزائرية (اختياري):</label>
             <input type="text" id="algerianHook" placeholder="يا خاوتي شوفو هاد لافير..." style="margin-bottom: 10px;">
-            <div id="hookSuggestions" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;"></div>
             <button type="button" id="generateHookBtn" style="width: 100%; padding: 12px 15px; background: linear-gradient(135deg, #E91E63, #C2185B); border: none; border-radius: 10px; color: #fff; font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                <i class="fas fa-comment-dots"></i> توليد اقتراحات مقدمة (AI)
+                <i class="fas fa-comment-dots"></i> توليد مقدمة جذابة (AI)
             </button>
             <p style="font-size: 11px; color: #888; margin-top: 5px;">جملة افتتاحية بالدارجة الجزائرية لجذب المتابعين</p>
         </div>
@@ -182,8 +181,6 @@
         const generateHookBtn = document.getElementById('generateHookBtn');
         let isFramed = false;
 
-        const hookSuggestions = document.getElementById('hookSuggestions');
-
         generateHookBtn.onclick = async () => {
             const currentTitle = productTitle.value.trim();
             if (!currentTitle) {
@@ -192,31 +189,20 @@
             }
 
             generateHookBtn.disabled = true;
-            generateHookBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التوليد...';
-            hookSuggestions.innerHTML = '';
+            generateHookBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
             try {
                 const res = await fetch('/api/generate-algerian-hook', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: currentTitle, price: salePrice.value, count: 3 })
+                    body: JSON.stringify({ title: currentTitle, price: salePrice.value })
                 });
                 const result = await res.json();
                 
-                if (result.success && result.hooks) {
-                    result.hooks.forEach(hookText => {
-                        const btn = document.createElement('button');
-                        btn.className = 'suggestion-btn';
-                        btn.style.cssText = 'width: 100%; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid #2d2d44; border-radius: 8px; color: #fff; font-family: inherit; font-size: 13px; text-align: right; cursor: pointer; transition: all 0.2s; margin-bottom: 5px;';
-                        btn.innerHTML = `<i class="fas fa-plus-circle" style="color: #E91E63; margin-left: 8px;"></i> ${hookText}`;
-                        btn.onclick = () => {
-                            algerianHook.value = hookText;
-                            updatePreview();
-                            showToast('تم اختيار المقدمة', 'success');
-                        };
-                        hookSuggestions.appendChild(btn);
-                    });
-                    showToast('تم توليد عدة اقتراحات ✅', 'success');
+                if (result.success) {
+                    algerianHook.value = result.hook;
+                    updatePreview();
+                    showToast('تم توليد المقدمة الجزائرية ✅', 'success');
                 } else {
                     showToast(result.error || 'فشل توليد المقدمة', 'error');
                 }
@@ -224,7 +210,7 @@
                 showToast('خطأ في الاتصال', 'error');
             } finally {
                 generateHookBtn.disabled = false;
-                generateHookBtn.innerHTML = '<i class="fas fa-comment-dots"></i> توليد اقتراحات إضافية';
+                generateHookBtn.innerHTML = '<i class="fas fa-comment-dots"></i> توليد';
             }
         };
 
