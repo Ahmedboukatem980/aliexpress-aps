@@ -256,7 +256,6 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         url: url,
-                        settings: settings,
                         credentials: {
                             cook: settings.cook || '',
                             appKey: settings.appKey || '',
@@ -266,12 +265,13 @@
                 });
                 
                 const data = await res.json();
-                if (data.success && data.links && data.links.length > 0) {
+                if (data.success && data.data) {
+                    const product = data.data;
                     products.push({
-                        title: data.productInfo?.title || 'منتج',
-                        price: data.productInfo?.salePrice || data.productInfo?.price || '0.00 USD',
-                        image: data.productInfo?.image || '',
-                        link: data.links[0].url,
+                        title: product.title || 'منتج',
+                        price: `${product.price} ${product.currency || ''}`,
+                        image: product.image || '',
+                        link: product.links?.bundle || product.links?.super || product.links?.coin || url,
                         originalUrl: url
                     });
                     saveProducts();
