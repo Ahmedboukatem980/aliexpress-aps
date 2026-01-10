@@ -719,6 +719,62 @@ app.get('/api/categories', (req, res) => {
   res.json({ success: true, categories });
 });
 
+app.post('/api/ai-bulk-refine-title', async (req, res) => {
+  try {
+    const { title } = req.body;
+    if (!title) return res.status(400).json({ success: false, error: 'العنوان مطلوب' });
+    const currentApiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    let localModel = model;
+    if (!localModel && currentApiKey) {
+      const localGenAI = new GoogleGenerativeAI(currentApiKey);
+      localModel = localGenAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+    }
+    if (!localModel) {
+      return res.json({ success: true, suggestions: [cleanupTitle(title)], method: 'fallback' });
+    }
+    const prompt = `Generate 5 different attractive, professional marketing titles for this AliExpress product in the SAME language as the input. 
+    Keep them concise (max 8 words). Remove junk words.
+    Return ONLY a JSON array of strings. Do not include markdown formatting or backticks.
+    Product: ${title}`;
+    const result = await localModel.generateContent(prompt);
+    const response = await result.response;
+    let text = response.text().trim();
+    // Clean up potential AI artifacts
+    text = text.replace(/```json/g, '').replace(/```/g, '').replace(/^[^{[]*/, '').replace(/[^}\]]*$/, '').trim();
+    const suggestions = JSON.parse(text);
+    res.json({ success: true, suggestions });
+  } catch (error) {
+    res.json({ success: true, suggestions: [cleanupTitle(req.body.title)] });
+  }
+});
+
+app.post('/api/ai-bulk-generate-hooks', async (req, res) => {
+  try {
+    const { title } = req.body;
+    const currentApiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    let localModel = model;
+    if (!localModel && currentApiKey) {
+      const localGenAI = new GoogleGenerativeAI(currentApiKey);
+      localModel = localGenAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+    }
+    if (!localModel) {
+      return res.json({ success: true, suggestions: ["يا خاوتي شوفو هاد لافير!"], method: 'fallback' });
+    }
+    const prompt = `Generate 5 different catchy opening lines (hooks) in Algerian Darija (Arabic script) for a Telegram post about: ${title}.
+    Variations: 1 emotional, 1 urgent, 1 funny, 1 professional, 1 simple.
+    Return ONLY a JSON array of strings. No emojis. Do not include markdown formatting or backticks.`;
+    const result = await localModel.generateContent(prompt);
+    const response = await result.response;
+    let text = response.text().trim();
+    // Clean up potential AI artifacts
+    text = text.replace(/```json/g, '').replace(/```/g, '').replace(/^[^{[]*/, '').replace(/[^}\]]*$/, '').trim();
+    const suggestions = JSON.parse(text);
+    res.json({ success: true, suggestions });
+  } catch (error) {
+    res.json({ success: true, suggestions: ["يا خاوتي شوفو هاد لافير!"] });
+  }
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running on port ${PORT}`);
