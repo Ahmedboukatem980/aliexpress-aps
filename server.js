@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { portaffFunction } = require('./afflink');
+const { searchHotProducts, searchProducts } = require('./aliexpress-api');
 const { Telegraf } = require('telegraf');
 const { PostScheduler } = require('./scheduler');
 const sharp = require('sharp');
@@ -470,6 +471,207 @@ app.get('/api/scheduled-posts', (req, res) => {
 app.delete('/api/scheduled-posts/:id', (req, res) => {
   postScheduler.removePost(req.params.id);
   res.json({ success: true });
+});
+
+const algerianCategories = {
+  'electronics': { id: '44', nameAr: 'إلكترونيات', keywords: ['phone accessories', 'earbuds', 'smartwatch', 'power bank'] },
+  'fashion': { id: '3', nameAr: 'أزياء', keywords: ['dress', 'jacket', 'shoes', 'bags'] },
+  'home': { id: '15', nameAr: 'منزل ومطبخ', keywords: ['kitchen gadgets', 'home decor', 'organizer', 'storage'] },
+  'beauty': { id: '66', nameAr: 'جمال وعناية', keywords: ['makeup', 'skincare', 'hair tools', 'perfume'] },
+  'kids': { id: '1501', nameAr: 'أطفال وألعاب', keywords: ['toys', 'educational', 'baby items', 'games'] },
+  'sports': { id: '18', nameAr: 'رياضة', keywords: ['fitness', 'outdoor', 'camping', 'cycling'] }
+};
+
+app.post('/api/discover-products', async (req, res) => {
+  try {
+    const { category, keywords, minPrice, maxPrice, limit, useAI } = req.body;
+    
+    const searchOptions = {
+      limit: limit || '10',
+      minPrice: minPrice || '1',
+      maxPrice: maxPrice || '50'
+    };
+
+    if (category && algerianCategories[category]) {
+      searchOptions.category = algerianCategories[category].id;
+    }
+    if (keywords) {
+      searchOptions.keywords = keywords;
+    }
+
+    const result = await searchHotProducts(searchOptions);
+    
+    if (!result.success) {
+      return res.status(500).json({ success: false, error: result.error || 'فشل البحث عن المنتجات' });
+    }
+
+    let products = result.products || [];
+
+    if (useAI && products.length > 0) {
+      const currentApiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+      
+      if (currentApiKey) {
+        try {
+          const localGenAI = new GoogleGenerativeAI(currentApiKey);
+          const localModel = localGenAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+          
+          const productTitles = products.slice(0, 5).map((p, i) => `${i+1}. ${p.title} - ${p.price} ${p.currency}`).join('\n');
+          
+          const prompt = `أنت خبير تسويق متخصص في السوق الجزائري.
+من بين هذه المنتجات، رتبها حسب جاذبيتها للمستهلك الجزائري (من الأكثر جاذبية للأقل):
+
+${productTitles}
+
+أعطني فقط أرقام المنتجات مرتبة (مثلاً: 2,1,4,3,5) بدون أي شرح.`;
+          
+          const aiResult = await localModel.generateContent(prompt);
+          const ranking = aiResult.response.text().trim();
+          const order = ranking.match(/\d+/g);
+          
+          if (order && order.length > 0) {
+            const reorderedProducts = [];
+            order.forEach(idx => {
+              const index = parseInt(idx) - 1;
+              if (index >= 0 && index < products.length && products[index]) {
+                reorderedProducts.push({ ...products[index], aiRanked: true });
+              }
+            });
+            products.forEach(p => {
+              if (!reorderedProducts.find(rp => rp.id === p.id)) {
+                reorderedProducts.push(p);
+              }
+            });
+            products = reorderedProducts;
+          }
+        } catch (aiError) {
+          console.log('AI ranking failed:', aiError.message);
+        }
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      total: result.total,
+      products: products
+    });
+  } catch (error) {
+    console.error('Discover products error:', error);
+    res.status(500).json({ success: false, error: 'حدث خطأ في البحث' });
+  }
+});
+
+app.post('/api/ai-suggest-keywords', async (req, res) => {
+  try {
+    const { category, season } = req.body;
+    
+    const currentApiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    
+    if (!currentApiKey) {
+      const defaultKeywords = {
+        'electronics': ['سماعات بلوتوث', 'شاحن سريع', 'ساعة ذكية', 'باور بانك'],
+        'fashion': ['فساتين صيفية', 'أحذية رياضية', 'حقائب يد', 'نظارات شمسية'],
+        'home': ['أدوات مطبخ', 'ديكور منزلي', 'منظمات', 'إضاءة LED'],
+        'beauty': ['مكياج', 'عناية بالبشرة', 'عطور', 'أدوات شعر'],
+        'kids': ['ألعاب تعليمية', 'ملابس أطفال', 'ألعاب إلكترونية'],
+        'sports': ['أجهزة رياضية', 'ملابس رياضية', 'معدات تخييم']
+      };
+      
+      return res.json({ 
+        success: true, 
+        keywords: defaultKeywords[category] || ['trending', 'best seller', 'hot deals'],
+        method: 'fallback'
+      });
+    }
+
+    const localGenAI = new GoogleGenerativeAI(currentApiKey);
+    const localModel = localGenAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+    
+    const categoryName = algerianCategories[category]?.nameAr || category || 'منتجات عامة';
+    const seasonText = season || 'الموسم الحالي';
+    
+    const prompt = `أنت خبير تسويق أفلييت متخصص في السوق الجزائري.
+اقترح 5 كلمات بحث (Keywords) بالإنجليزية للبحث في AliExpress عن منتجات في فئة "${categoryName}" تناسب ${seasonText} وتحقق مبيعات عالية في الجزائر.
+
+أعطني الكلمات فقط مفصولة بفاصلة، بدون أرقام أو شرح.`;
+    
+    const result = await localModel.generateContent(prompt);
+    const keywordsText = result.response.text().trim();
+    const keywords = keywordsText.split(',').map(k => k.trim()).filter(k => k.length > 0);
+    
+    res.json({ success: true, keywords, method: 'ai' });
+  } catch (error) {
+    console.error('AI suggest keywords error:', error);
+    res.status(500).json({ success: false, error: 'فشل اقتراح الكلمات' });
+  }
+});
+
+app.post('/api/analyze-product', async (req, res) => {
+  try {
+    const { title, price, category } = req.body;
+    
+    const currentApiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    
+    if (!currentApiKey) {
+      return res.json({ 
+        success: true, 
+        analysis: {
+          score: 7,
+          pros: ['سعر مناسب', 'منتج مطلوب'],
+          hook: 'يا خاوتي شوفو هاد لافير الخطيرة!'
+        },
+        method: 'fallback'
+      });
+    }
+
+    const localGenAI = new GoogleGenerativeAI(currentApiKey);
+    const localModel = localGenAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+    
+    const prompt = `أنت خبير تسويق جزائري. حلل هذا المنتج للسوق الجزائري:
+
+المنتج: ${title}
+السعر: ${price}
+
+أعطني:
+1. نقطة من 10 لجاذبية المنتج للجزائريين
+2. ميزتين رئيسيتين بالدارجة الجزائرية (قصيرة جداً)
+3. Hook تسويقي قصير بالدارجة الجزائرية
+
+أجب بصيغة JSON فقط:
+{"score": 8, "pros": ["ميزة 1", "ميزة 2"], "hook": "النص"}`;
+    
+    const result = await localModel.generateContent(prompt);
+    const responseText = result.response.text().trim();
+    
+    let analysis;
+    try {
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        analysis = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('No JSON found');
+      }
+    } catch (e) {
+      analysis = {
+        score: 7,
+        pros: ['منتج جيد', 'سعر معقول'],
+        hook: 'عرض ما يتفوتش، غير كليكيو!'
+      };
+    }
+    
+    res.json({ success: true, analysis, method: 'ai' });
+  } catch (error) {
+    console.error('Analyze product error:', error);
+    res.status(500).json({ success: false, error: 'فشل تحليل المنتج' });
+  }
+});
+
+app.get('/api/categories', (req, res) => {
+  const categories = Object.entries(algerianCategories).map(([key, value]) => ({
+    id: key,
+    name: value.nameAr,
+    aliexpressId: value.id
+  }));
+  res.json({ success: true, categories });
 });
 
 const PORT = process.env.PORT || 5000;
