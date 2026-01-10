@@ -538,12 +538,6 @@
                     let aiText = `${settings.prefix} ${currentProduct.title}\n\n`;
                     aiText += `🔥 ${data.analysis.hook}\n\n`;
                     
-                    if (data.analysis.pros && data.analysis.pros.length > 0) {
-                        aiText += `✅ المميزات:\n`;
-                        data.analysis.pros.forEach(pro => aiText += `• ${pro}\n`);
-                        aiText += `\n`;
-                    }
-                    
                     aiText += `${settings.salePrice} ${currentProduct.price}\n`;
                     if (coupon) aiText += `${settings.couponText} ${coupon}\n`;
                     aiText += `\n${settings.linkText} ${selectedLink}\n\n`;
