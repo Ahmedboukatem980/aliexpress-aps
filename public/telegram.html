@@ -234,11 +234,8 @@
                 
                 if (result.success) {
                     productTitle.value = result.refinedTitle;
-                    if (result.hook) {
-                        algerianHook.value = result.hook;
-                    }
                     updatePreview();
-                    showToast('تم تحسين العنوان وتوليد المقدمة ✅', 'success');
+                    showToast('تم تحسين العنوان ✅', 'success');
                 } else {
                     showToast(result.error || 'فشل تحسين العنوان', 'error');
                 }
