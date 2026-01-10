@@ -527,11 +527,44 @@
                     body: JSON.stringify({ url, credentials: { cook: settings.cook, appKey: settings.appKey, appSecret: settings.appSecret } })
                 });
                 const data = await response.json();
-                if (data.success) showResults(data.data);
+                if (data.success) {
+                    showResults(data.data);
+                    document.getElementById('refineTitleBtn').style.display = 'flex';
+                }
                 else showError(data.error || 'حدث خطأ');
             } catch (err) { showError('فشل الاتصال'); }
             finally { loading.classList.remove('show'); searchBtn.disabled = false; }
         }
+
+        const refineTitleBtn = document.getElementById('refineTitleBtn');
+        refineTitleBtn.addEventListener('click', async () => {
+            const currentTitle = productTitle.textContent;
+            if (!currentTitle) return;
+
+            refineTitleBtn.disabled = true;
+            refineTitleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التحسين...';
+
+            try {
+                const response = await fetch('/api/ai-refine-title', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: currentTitle })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    productTitle.textContent = result.refinedTitle;
+                    showToast('تم تحسين العنوان بنجاح');
+                } else {
+                    showToast('فشل تحسين العنوان');
+                }
+            } catch (err) {
+                showToast('خطأ في الاتصال');
+            } finally {
+                refineTitleBtn.disabled = false;
+                refineTitleBtn.innerHTML = '<i class="fas fa-magic"></i> تحسين بالعامل الذكي';
+            }
+        });
 
         function showResults(data) {
             currentProductData = data;
