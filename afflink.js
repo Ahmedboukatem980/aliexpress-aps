@@ -251,52 +251,32 @@ async function portaffFunction(cookie, ids) {
 
     if (!productId) throw new Error("❌ لم يتم استخراج Product ID.");
 
-    const sourceTypes = {
-        "555": "coin",
-        "620": "point",
-        "562": "super",
-        "570": "limit",
-        "561": "ther3"
-    };
+    let result = { affiliateLink: null, previews: {} };
 
-    let result = { aff: {}, previews: {} };
-    let promoRequests = [];
+    // Generate single affiliate link using the standard product URL
+    const targetUrl = `https://www.aliexpress.com/item/${productId}.html`;
 
-    for (const type in sourceTypes) {
-        const name = sourceTypes[type];
+    try {
+        const response = await got("https://portals.aliexpress.com/tools/linkGenerate/generatePromotionLink.htm", {
+            searchParams: {
+                trackId: "default",
+                targetUrl
+            },
+            headers: {
+                cookie: `xman_t=${cookie};`
+            },
+            responseType: "json"
+        });
 
-        const targetUrl = type === "561"
-            ? `https://www.aliexpress.com/ssr/300000512/BundleDeals2?disableNav=YES&pha_manifest=ssr&_immersiveMode=true&productIds=${productId}&aff_fcid=`
-            : type === "555"
-                ? `https://m.aliexpress.com/p/coin-index/index.html?_immersiveMode=true&from=syicon&productIds=${productId}&aff_fcid=`
-                : `https://star.aliexpress.com/share/share.htm?redirectUrl=https%3A%2F%2Fvi.aliexpress.com%2Fitem%2F${productId}.html%3FsourceType%3D${type === "620" ? '620%26channel%3Dcoin' : type}`;
-
-        promoRequests.push(
-            got("https://portals.aliexpress.com/tools/linkGenerate/generatePromotionLink.htm", {
-                searchParams: {
-                    trackId: "default",
-                    targetUrl
-                },
-                headers: {
-                    cookie: `xman_t=${cookie};`
-                },
-                responseType: "json"
-            })
-                .then(r => ({ type: name, data: r.body.data }))
-                .catch(() => ({ type: name, data: null }))
-        );
-    }
-
-    const promoResults = await Promise.all(promoRequests);
-
-    for (const pr of promoResults) {
-        if (pr.data && typeof pr.data === 'object') {
-            result.aff[pr.type] = pr.data.promotionUrl || pr.data.couponUrl || pr.data.url || null;
-        } else if (typeof pr.data === 'string') {
-            result.aff[pr.type] = pr.data;
-        } else {
-            result.aff[pr.type] = null;
+        const data = response.body.data;
+        if (data && typeof data === 'object') {
+            result.affiliateLink = data.promotionUrl || data.couponUrl || data.url || null;
+        } else if (typeof data === 'string') {
+            result.affiliateLink = data;
         }
+    } catch (err) {
+        console.error("Failed to generate affiliate link:", err.message);
+        result.affiliateLink = null;
     }
 
     result.previews = await fetchLinkPreview(productId);

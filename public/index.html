@@ -217,8 +217,16 @@
                 <div class="product-info" id="productInfo"></div>
             </div>
 
-            <div class="section-title">🎉 روابط التخفيض</div>
-            <div id="linksContainer"></div>
+            <div class="section-title">🔗 رابط الأفلييت</div>
+            <div id="affiliateLinkContainer" class="link-card" style="display: none;">
+                <div class="link-header"><span>رابط الأفلييت</span><i class="fas fa-link"></i></div>
+                <div class="link-text" id="affiliateLinkText" style="word-break: break-all; font-size: 12px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; margin: 10px 0;"></div>
+                <div class="link-actions">
+                    <button class="action-btn open-btn" id="openLinkBtn"><i class="fas fa-external-link-alt"></i> فتح</button>
+                    <button class="action-btn copy-btn" id="copyLinkBtn"><i class="fas fa-copy"></i> نسخ</button>
+                    <button class="action-btn tele-btn" id="telePageBtn">صفحة النشر</button>
+                </div>
+            </div>
 
             <div class="warning-card" id="warningCard">
                 <i class="fas fa-exclamation-triangle"></i>
@@ -235,10 +243,6 @@
                     <p style="font-size: 11px; color: #aaa; text-align: center;">دعه يكتب لك منشوراً جذاباً بالدارجة الجزائرية!</p>
                 </div>
 
-                <div class="form-group">
-                    <label>الرابط المختار:</label>
-                    <select id="linkSelect"><option value="">-- اختر الرابط --</option></select>
-                </div>
                 <div class="form-group">
                     <label>القناة المستهدفة:</label>
                     <select id="channelSelect">
@@ -258,7 +262,7 @@
                     <p class="settings-hint">يمكنك تعديل النص هنا قبل نسخه أو نشره.</p>
                 </div>
 
-                <button class="publish-btn" id="publishBtn" disabled><i class="fab fa-telegram"></i> نشر المنشور الآن</button>
+                <button class="publish-btn" id="publishBtn"><i class="fab fa-telegram"></i> نشر المنشور الآن</button>
             </div>
         </div>
     </div>
@@ -452,13 +456,6 @@
         }
 
         let currentProductData = null;
-        const linkTypes = [
-            { key: 'coin', title: 'تخفيض العملات', icon: 'fa-coins' },
-            { key: 'point', title: 'رابط العملات', icon: 'fa-star' },
-            { key: 'super', title: 'السوبر ديلز', icon: 'fa-bolt' },
-            { key: 'limit', title: 'العرض المحدود', icon: 'fa-clock' },
-            { key: 'bundle', title: 'Bundle Deals', icon: 'fa-gift' }
-        ];
 
         const urlInput = document.getElementById('urlInput');
         const searchBtn = document.getElementById('searchBtn');
@@ -472,9 +469,9 @@
         const productOriginalPrice = document.getElementById('productOriginalPrice');
         const productDiscount = document.getElementById('productDiscount');
         const productInfo = document.getElementById('productInfo');
-        const linksContainer = document.getElementById('linksContainer');
+        const affiliateLinkContainer = document.getElementById('affiliateLinkContainer');
+        const affiliateLinkText = document.getElementById('affiliateLinkText');
         const toast = document.getElementById('toast');
-        const linkSelect = document.getElementById('linkSelect');
         const couponInput = document.getElementById('couponInput');
         const publishBtn = document.getElementById('publishBtn');
         const aiWriteBtn = document.getElementById('aiWriteBtn');
@@ -496,11 +493,11 @@
                 });
                 const data = await res.json();
                 if (data.success && data.analysis) {
-                    const selectedLink = linkSelect.value || 'رابط المنتج';
+                    const affiliateLink = currentProductData.affiliateLink || 'رابط المنتج';
                     const coupon = couponInput.value;
                     let text = `${settings.prefix} ${currentProductData.title}\n\n🔥 ${data.analysis.hook}\n\n${settings.salePrice} ${currentProductData.price}\n`;
                     if (coupon) text += `${settings.couponText} ${coupon}\n`;
-                    text += `\n${settings.linkText} ${selectedLink}\n\n${settings.footer}\n\n${settings.hashtags}`;
+                    text += `\n${settings.linkText} ${affiliateLink}\n\n${settings.footer}\n\n${settings.hashtags}`;
                     aiPreview.value = text;
                     await navigator.clipboard.writeText(text);
                     showToast("تم التأليف والنسخ! ✨");
@@ -576,23 +573,20 @@
             productDiscount.textContent = data.discount ? `-${data.discount}%` : '';
             productDiscount.style.display = data.discount ? 'inline-block' : 'none';
             
-            linksContainer.innerHTML = '';
-            linkSelect.innerHTML = '<option value="">-- اختر الرابط --</option>';
-            linkTypes.forEach(type => {
-                const link = data.links[type.key];
-                if (link) {
-                    linkSelect.innerHTML += `<option value="${link}">${type.title}</option>`;
-                    linksContainer.innerHTML += `<div class="link-card">
-                        <div class="link-header"><span>${type.title}</span><i class="fas ${type.icon}"></i></div>
-                        <div class="link-text">${link}</div>
-                        <div class="link-actions">
-                            <button class="action-btn open-btn" onclick="window.open('${link}', '_blank')"><i class="fas fa-external-link-alt"></i> فتح</button>
-                            <button class="action-btn copy-btn" onclick="navigator.clipboard.writeText('${link}').then(() => showToast('تم النسخ'))"><i class="fas fa-copy"></i> نسخ</button>
-                            <button class="action-btn tele-btn" onclick="openTelePage('${link}')">صفحة النشر</button>
-                        </div>
-                    </div>`;
-                }
-            });
+            // Show single affiliate link
+            if (data.affiliateLink) {
+                affiliateLinkText.textContent = data.affiliateLink;
+                affiliateLinkContainer.style.display = 'block';
+                
+                document.getElementById('openLinkBtn').onclick = () => window.open(data.affiliateLink, '_blank');
+                document.getElementById('copyLinkBtn').onclick = () => {
+                    navigator.clipboard.writeText(data.affiliateLink).then(() => showToast('تم النسخ ✅'));
+                };
+                document.getElementById('telePageBtn').onclick = () => openTelePage(data.affiliateLink);
+            } else {
+                affiliateLinkContainer.style.display = 'none';
+            }
+            
             results.classList.add('show');
         }
 
@@ -603,10 +597,12 @@
 
         function showError(msg) { errorMsg.textContent = msg; errorMsg.classList.add('show'); }
         function showToast(msg) { toast.textContent = msg; toast.className = 'toast show'; setTimeout(() => toast.className = 'toast', 2500); }
-        linkSelect.onchange = () => { publishBtn.disabled = !linkSelect.value; };
 
         publishBtn.onclick = async () => {
-            const link = linkSelect.value;
+            if (!currentProductData || !currentProductData.affiliateLink) {
+                showToast('لا يوجد رابط للنشر');
+                return;
+            }
             publishBtn.disabled = true;
             try {
                 const res = await fetch('/api/publish-telegram', {
@@ -615,7 +611,7 @@
                     body: JSON.stringify({
                         title: currentProductData.title,
                         price: currentProductData.price,
-                        link: link,
+                        link: currentProductData.affiliateLink,
                         coupon: couponInput.value.trim() || null,
                         image: currentProductData.image,
                         settings: settings,
