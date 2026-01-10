@@ -55,35 +55,17 @@
         <div class="form-group">
             <label>اسم المنتج:</label>
             <input type="text" id="productTitle" placeholder="أدخل اسم المنتج..." style="margin-bottom: 10px;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <button type="button" id="refineTitleBtn" style="padding: 12px 15px; background: #673AB7; border: none; border-radius: 10px; color: #fff; font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <i class="fas fa-magic"></i> تحسين واحد
-                </button>
-                <button type="button" id="bulkRefineTitleBtn" style="padding: 12px 15px; background: #5E35B1; border: none; border-radius: 10px; color: #fff; font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <i class="fas fa-layer-group"></i> 5 اقتراحات
-                </button>
-            </div>
-            <div id="titleSuggestions" style="margin-top: 10px; display: none; background: #16213e; border: 1px solid #2d2d44; border-radius: 10px; padding: 10px;">
-                <p style="font-size: 12px; color: #0088cc; margin-bottom: 10px; font-weight: 600;">اختر العنوان المناسب:</p>
-                <div id="titleSuggestionsList" style="display: flex; flex-direction: column; gap: 8px;"></div>
-            </div>
+            <button type="button" id="refineTitleBtn" style="width: 100%; padding: 12px 15px; background: #673AB7; border: none; border-radius: 10px; color: #fff; font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <i class="fas fa-magic"></i> تحسين العنوان بالذكاء الاصطناعي
+            </button>
         </div>
         
         <div class="form-group">
             <label>مقدمة جزائرية (اختياري):</label>
             <input type="text" id="algerianHook" placeholder="يا خاوتي شوفو هاد لافير..." style="margin-bottom: 10px;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <button type="button" id="generateHookBtn" style="padding: 12px 15px; background: linear-gradient(135deg, #E91E63, #C2185B); border: none; border-radius: 10px; color: #fff; font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <i class="fas fa-comment-dots"></i> مقدمة واحدة
-                </button>
-                <button type="button" id="bulkGenerateHookBtn" style="padding: 12px 15px; background: linear-gradient(135deg, #D81B60, #AD1457); border: none; border-radius: 10px; color: #fff; font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <i class="fas fa-comments"></i> 5 مقدمات
-                </button>
-            </div>
-            <div id="hookSuggestions" style="margin-top: 10px; display: none; background: #16213e; border: 1px solid #2d2d44; border-radius: 10px; padding: 10px;">
-                <p style="font-size: 12px; color: #E91E63; margin-bottom: 10px; font-weight: 600;">اختر المقدمة المناسبة:</p>
-                <div id="hookSuggestionsList" style="display: flex; flex-direction: column; gap: 8px;"></div>
-            </div>
+            <button type="button" id="generateHookBtn" style="width: 100%; padding: 12px 15px; background: linear-gradient(135deg, #E91E63, #C2185B); border: none; border-radius: 10px; color: #fff; font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <i class="fas fa-comment-dots"></i> توليد مقدمة جذابة (AI)
+            </button>
             <p style="font-size: 11px; color: #888; margin-top: 5px;">جملة افتتاحية بالدارجة الجزائرية لجذب المتابعين</p>
         </div>
         
@@ -198,68 +180,6 @@
         const algerianHook = document.getElementById('algerianHook');
         const generateHookBtn = document.getElementById('generateHookBtn');
         let isFramed = false;
-
-        const bulkRefineTitleBtn = document.getElementById('bulkRefineTitleBtn');
-        const titleSuggestions = document.getElementById('titleSuggestions');
-        const titleSuggestionsList = document.getElementById('titleSuggestionsList');
-        const bulkGenerateHookBtn = document.getElementById('bulkGenerateHookBtn');
-        const hookSuggestions = document.getElementById('hookSuggestions');
-        const hookSuggestionsList = document.getElementById('hookSuggestionsList');
-
-        bulkRefineTitleBtn.onclick = async () => {
-            const currentTitle = productTitle.value.trim();
-            if (!currentTitle) { showToast('الرجاء إدخال اسم المنتج', 'error'); return; }
-            bulkRefineTitleBtn.disabled = true;
-            bulkRefineTitleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-            try {
-                const res = await fetch('/api/ai-bulk-refine-title', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: currentTitle })
-                });
-                const result = await res.json();
-                if (result.success) {
-                    titleSuggestionsList.innerHTML = '';
-                    result.suggestions.forEach(s => {
-                        const btn = document.createElement('button');
-                        btn.className = 'suggestion-item';
-                        btn.style = 'width: 100%; padding: 10px; background: #2d2d44; border: 1px solid #3d3d5c; border-radius: 8px; color: #fff; text-align: right; cursor: pointer; font-size: 13px; margin-bottom: 5px;';
-                        btn.textContent = s;
-                        btn.onclick = () => { productTitle.value = s; titleSuggestions.style.display = 'none'; updatePreview(); };
-                        titleSuggestionsList.appendChild(btn);
-                    });
-                    titleSuggestions.style.display = 'block';
-                }
-            } catch (e) { showToast('خطأ في الاتصال', 'error'); }
-            finally { bulkRefineTitleBtn.disabled = false; bulkRefineTitleBtn.innerHTML = '<i class="fas fa-layer-group"></i> 5 اقتراحات'; }
-        };
-
-        bulkGenerateHookBtn.onclick = async () => {
-            const currentTitle = productTitle.value.trim();
-            bulkGenerateHookBtn.disabled = true;
-            bulkGenerateHookBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-            try {
-                const res = await fetch('/api/ai-bulk-generate-hooks', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: currentTitle })
-                });
-                const result = await res.json();
-                if (result.success) {
-                    hookSuggestionsList.innerHTML = '';
-                    result.suggestions.forEach(s => {
-                        const btn = document.createElement('button');
-                        btn.className = 'suggestion-item';
-                        btn.style = 'width: 100%; padding: 10px; background: #2d2d44; border: 1px solid #3d3d5c; border-radius: 8px; color: #fff; text-align: right; cursor: pointer; font-size: 13px; margin-bottom: 5px;';
-                        btn.textContent = s;
-                        btn.onclick = () => { algerianHook.value = s; hookSuggestions.style.display = 'none'; updatePreview(); };
-                        hookSuggestionsList.appendChild(btn);
-                    });
-                    hookSuggestions.style.display = 'block';
-                }
-            } catch (e) { showToast('خطأ في الاتصال', 'error'); }
-            finally { bulkGenerateHookBtn.disabled = false; bulkGenerateHookBtn.innerHTML = '<i class="fas fa-comments"></i> 5 مقدمات'; }
-        };
 
         generateHookBtn.onclick = async () => {
             const currentTitle = productTitle.value.trim();
