@@ -386,8 +386,9 @@ Input title: ${title}`;
 // Generate Algerian-style hook/intro for product
 app.post('/api/generate-algerian-hook', async (req, res) => {
   try {
-    const { title, price } = req.body;
+    const { title, price, count } = req.body;
     if (!title) return res.status(400).json({ success: false, error: 'العنوان مطلوب' });
+    const suggestionCount = count || 1;
 
     const currentApiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
     
@@ -397,7 +398,6 @@ app.post('/api/generate-algerian-hook', async (req, res) => {
       localModel = localGenAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
     }
 
-    // Fallback hooks if AI is not available - extensive list for variety
     const fallbackHooks = [
       "يا خاوتي شوفو هاد لافير الخطيرة!",
       "سلعة هبال وسومة ما تتفوتش!",
@@ -427,38 +427,38 @@ app.post('/api/generate-algerian-hook', async (req, res) => {
     ];
 
     if (!localModel) {
-      const randomHook = fallbackHooks[Math.floor(Math.random() * fallbackHooks.length)];
-      return res.json({ success: true, hook: randomHook, method: 'fallback' });
+      const shuffled = [...fallbackHooks].sort(() => 0.5 - Math.random());
+      return res.json({ success: true, hooks: shuffled.slice(0, suggestionCount), method: 'fallback' });
     }
 
     try {
-      const prompt = `You are an Algerian marketing expert who writes in Algerian Darija (الدارجة الجزائرية).
-Your task is to write ONE short, catchy opening line (hook) for a Telegram post about this product.
+      const prompt = `You are an Algerian marketing expert.
+Write ${suggestionCount} different, catchy opening lines (hooks) for a Telegram post about this product: ${title}.
+Each hook must be in Algerian Darija (Arabic script).
+Each hook should have a different style:
+- Style 1: Enthusiastic (e.g., ya khawti, l'affaire...)
+- Style 2: Value-focused (e.g., souma habta, ma tetfoutsh...)
+- Style 3: Quality-focused (e.g., sel3a hbal, top...)
 
 RULES:
 1. Write ONLY in Algerian Darija using Arabic letters.
-2. Make it friendly and exciting, like you're telling a friend about a great deal.
-3. Use common Algerian expressions like: "يا خاوتي", "لافير", "سلعة هبال", "سومة هابطة", "ما تتفوتش", "بروفيتيو".
-4. Keep it to ONE line only (max 10 words).
-5. Do NOT include the product name or price in the hook.
-6. Do NOT add emojis.
-7. Return ONLY the hook text, nothing else.
+2. Return ONLY the hooks, one per line. No numbers, no extra text.
+3. Max 10 words per hook.
 
 Product: ${title}
 ${price ? `Price: ${price}` : ''}`;
       
       const result = await localModel.generateContent(prompt);
       const response = await result.response;
-      const hook = response.text().trim();
+      const text = response.text().trim();
+      const hooks = text.split('\n').map(h => h.trim()).filter(h => h.length > 0);
 
-      res.json({ success: true, hook: hook, method: 'ai' });
+      res.json({ success: true, hooks: hooks, method: 'ai' });
     } catch (aiError) {
-      console.log('AI hook failed, using fallback:', aiError.message);
-      const randomHook = fallbackHooks[Math.floor(Math.random() * fallbackHooks.length)];
-      res.json({ success: true, hook: randomHook, method: 'fallback' });
+      const shuffled = [...fallbackHooks].sort(() => 0.5 - Math.random());
+      res.json({ success: true, hooks: shuffled.slice(0, suggestionCount), method: 'fallback' });
     }
   } catch (error) {
-    console.error('Hook generation error:', error.message || error);
     res.status(500).json({ success: false, error: 'فشل إنشاء المقدمة' });
   }
 });
