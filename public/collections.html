@@ -307,7 +307,7 @@
                         title: product.title || 'منتج',
                         price: `${product.price} ${product.currency || ''}`,
                         image: product.image || '',
-                        link: product.links?.bundle || product.links?.super || product.links?.coin || url,
+                        link: url,
                         originalUrl: url
                     });
                     saveProducts();
