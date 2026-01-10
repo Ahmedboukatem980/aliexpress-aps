@@ -332,21 +332,14 @@ app.post('/api/ai-refine-title', async (req, res) => {
     // Re-check for API key in case it was just added to environment
     const currentApiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
     
-    // Local model instance to ensure we use the latest env vars
-    let localModel = model;
-    if (!localModel && currentApiKey) {
-      const localGenAI = new GoogleGenerativeAI(currentApiKey);
-      localModel = localGenAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+    if (!currentApiKey) {
+      return res.status(500).json({ success: false, error: 'مفتاح Gemini API غير متوفر' });
     }
 
-    // If no AI model available, use simple cleanup
-    if (!localModel) {
-      const cleanedTitle = cleanupTitle(title);
-      return res.json({ success: true, refinedTitle: cleanedTitle, method: 'fallback' });
-    }
+    const localGenAI = new GoogleGenerativeAI(currentApiKey);
+    const localModel = localGenAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-    try {
-      const prompt = `You are a professional marketing expert specialized in AliExpress deals for the Algerian market.
+    const prompt = `You are a professional marketing expert specialized in AliExpress deals for the Algerian market.
 Your task is to refine the product title to be more attractive, professional, and engaging for Telegram channel users.
 
 CRITICAL RULES:
@@ -358,37 +351,25 @@ CRITICAL RULES:
 6. Only return the refined title text.
 
 Input title: ${title}`;
-      
-      const result = await localModel.generateContent(prompt);
-      const response = await result.response;
-      const refinedTitle = response.text().trim();
+    
+    const result = await localModel.generateContent(prompt);
+    const response = await result.response;
+    const refinedTitle = response.text().trim();
 
-      // NEW: Generate hook in the same request to save quota and time
-      let hook = "";
-      try {
-        const hookPrompt = `Write ONE short, catchy opening line (hook) in Algerian Darija (Arabic script) for this product: ${refinedTitle}. No emojis, one line only.`;
-        const hookResult = await localModel.generateContent(hookPrompt);
-        hook = hookResult.response.text().trim();
-      } catch (e) {
-        hook = fallbackHooks[Math.floor(Math.random() * fallbackHooks.length)];
-      }
-
-      res.json({ success: true, refinedTitle: refinedTitle || title, hook: hook, method: 'ai' });
-    } catch (aiError) {
-      // If AI fails (quota exceeded, etc.), use fallback
-      console.log('AI failed, using fallback:', aiError.message);
-      const cleanedTitle = cleanupTitle(title);
-      res.json({ success: true, refinedTitle: cleanedTitle, method: 'fallback' });
+    // Generate hook in the same request
+    let hook = "";
+    try {
+      const hookPrompt = `Write ONE short, catchy opening line (hook) in Algerian Darija (Arabic script) for this product: ${refinedTitle}. No emojis, one line only.`;
+      const hookResult = await localModel.generateContent(hookPrompt);
+      hook = hookResult.response.text().trim();
+    } catch (e) {
+      console.log('Hook generation failed:', e.message);
     }
+
+    res.json({ success: true, refinedTitle: refinedTitle || title, hook: hook, method: 'ai' });
   } catch (error) {
     console.error('Refine error:', error.message || error);
-    // Even on error, try to return something useful
-    const cleanedTitle = cleanupTitle(req.body.title || '');
-    if (cleanedTitle) {
-      res.json({ success: true, refinedTitle: cleanedTitle, method: 'fallback' });
-    } else {
-      res.status(500).json({ success: false, error: 'فشل تحسين العنوان' });
-    }
+    res.status(500).json({ success: false, error: 'فشل تحسين العنوان: ' + (error.message || 'خطأ غير معروف') });
   }
 });
 
@@ -400,48 +381,14 @@ app.post('/api/generate-algerian-hook', async (req, res) => {
 
     const currentApiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
     
-    let localModel = model;
-    if (!localModel && currentApiKey) {
-      const localGenAI = new GoogleGenerativeAI(currentApiKey);
-      localModel = localGenAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+    if (!currentApiKey) {
+      return res.status(500).json({ success: false, error: 'مفتاح Gemini API غير متوفر' });
     }
 
-    // Fallback hooks if AI is not available - extensive list for variety
-    const fallbackHooks = [
-      "يا خاوتي شوفو هاد لافير الخطيرة!",
-      "سلعة هبال وسومة ما تتفوتش!",
-      "لافير تاع الصح، غير بروفيتيو!",
-      "عرض خاص لخاوتنا، ما تفوتوهش!",
-      "جبتلكم عرض هايل اليوم!",
-      "والله سلعة تستاهل، شوفوها!",
-      "لقيتلكم حاجة مليحة بزاف!",
-      "هاد العرض راه يسوى، ما تتردوش!",
-      "سومة هابطة وجودة عالية، واش تستناو!",
-      "عرض ما يتفوتش، غير كليكيو!",
-      "جات فرصة مليحة لخاوتنا!",
-      "شوفو واش لقيت، راه يستاهل!",
-      "هادي سلعة نار بسعر هايل!",
-      "لافير قوية اليوم، ما تفوتكمش!",
-      "والله عجبتني هاد السلعة، لازم نشاركها معاكم!",
-      "سعر خيالي وجودة تاع الصح!",
-      "هاذي الفرصة لي كنتو تستناو فيها!",
-      "منتج هايل بسومة معقولة بزاف!",
-      "شوفو هاد لافير قبل ما تخلص!",
-      "جبتلكم حاجة تهبل، غير طلو!",
-      "عرض اليوم راه خطير، ما تتأخروش!",
-      "لقيتلكم كنز اليوم، شوفوه!",
-      "هادي فرصة ذهبية، ما تضيعوهاش!",
-      "سلعة ممتازة وسومتها في المتناول!",
-      "راني نوصيكم بهاد المنتج، يستاهل!"
-    ];
+    const localGenAI = new GoogleGenerativeAI(currentApiKey);
+    const localModel = localGenAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-    if (!localModel) {
-      const randomHook = fallbackHooks[Math.floor(Math.random() * fallbackHooks.length)];
-      return res.json({ success: true, hook: randomHook, method: 'fallback' });
-    }
-
-    try {
-      const prompt = `You are an Algerian marketing expert who writes in Algerian Darija (الدارجة الجزائرية).
+    const prompt = `You are an Algerian marketing expert who writes in Algerian Darija (الدارجة الجزائرية).
 Your task is to write ONE short, catchy opening line (hook) for a Telegram post about this product.
 
 RULES:
@@ -455,20 +402,15 @@ RULES:
 
 Product: ${title}
 ${price ? `Price: ${price}` : ''}`;
-      
-      const result = await localModel.generateContent(prompt);
-      const response = await result.response;
-      const hook = response.text().trim();
+    
+    const result = await localModel.generateContent(prompt);
+    const response = await result.response;
+    const hook = response.text().trim();
 
-      res.json({ success: true, hook: hook, method: 'ai' });
-    } catch (aiError) {
-      console.log('AI hook failed, using fallback:', aiError.message);
-      const randomHook = fallbackHooks[Math.floor(Math.random() * fallbackHooks.length)];
-      res.json({ success: true, hook: randomHook, method: 'fallback' });
-    }
+    res.json({ success: true, hook: hook, method: 'ai' });
   } catch (error) {
     console.error('Hook generation error:', error.message || error);
-    res.status(500).json({ success: false, error: 'فشل إنشاء المقدمة' });
+    res.status(500).json({ success: false, error: 'فشل إنشاء المقدمة: ' + (error.message || 'خطأ غير معروف') });
   }
 });
 
