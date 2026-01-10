@@ -233,7 +233,7 @@ app.post('/api/publish-telegram', async (req, res) => {
 // Collections API
 app.post('/api/publish-collection', async (req, res) => {
   try {
-    const { message, credentials } = req.body;
+    const { message, image, credentials } = req.body;
     
     const botToken = credentials?.telegramToken || process.env.TELEGRAM_BOT_TOKEN;
     if (!botToken) return res.status(400).json({ success: false, error: 'Bot token مطلوب' });
@@ -263,7 +263,17 @@ app.post('/api/publish-collection', async (req, res) => {
     if (channels.length === 0) return res.status(500).json({ success: false, error: 'الرجاء إدخال معرف القناة في الإعدادات' });
     
     for (const ch of channels) {
-      await bot.telegram.sendMessage(ch, message);
+      if (image) {
+        if (image.startsWith('data:image')) {
+          const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+          const imageBuffer = Buffer.from(base64Data, 'base64');
+          await bot.telegram.sendPhoto(ch, { source: imageBuffer }, { caption: message });
+        } else {
+          await bot.telegram.sendPhoto(ch, image, { caption: message });
+        }
+      } else {
+        await bot.telegram.sendMessage(ch, message);
+      }
     }
     
     res.json({ success: true, message: `تم النشر في ${channels.length} قناة` });
