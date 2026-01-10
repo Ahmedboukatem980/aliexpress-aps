@@ -583,25 +583,43 @@ app.post('/api/ai-suggest-keywords', async (req, res) => {
       });
     }
 
-    const localGenAI = new GoogleGenerativeAI(currentApiKey);
-    const localModel = localGenAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-    
-    const categoryName = algerianCategories[category]?.nameAr || category || 'منتجات عامة';
-    const seasonText = season || 'الموسم الحالي';
-    
-    const prompt = `أنت خبير تسويق أفلييت متخصص في السوق الجزائري.
+    try {
+      const localGenAI = new GoogleGenerativeAI(currentApiKey);
+      const localModel = localGenAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+      
+      const categoryName = algerianCategories[category]?.nameAr || category || 'منتجات عامة';
+      const seasonText = season || 'الموسم الحالي';
+      
+      const prompt = `أنت خبير تسويق أفلييت متخصص في السوق الجزائري.
 اقترح 5 كلمات بحث (Keywords) بالإنجليزية للبحث في AliExpress عن منتجات في فئة "${categoryName}" تناسب ${seasonText} وتحقق مبيعات عالية في الجزائر.
 
 أعطني الكلمات فقط مفصولة بفاصلة، بدون أرقام أو شرح.`;
-    
-    const result = await localModel.generateContent(prompt);
-    const keywordsText = result.response.text().trim();
-    const keywords = keywordsText.split(',').map(k => k.trim()).filter(k => k.length > 0);
-    
-    res.json({ success: true, keywords, method: 'ai' });
+      
+      const result = await localModel.generateContent(prompt);
+      const keywordsText = result.response.text().trim();
+      const keywords = keywordsText.split(',').map(k => k.trim()).filter(k => k.length > 0);
+      
+      res.json({ success: true, keywords, method: 'ai' });
+    } catch (aiError) {
+      console.log('AI suggest keywords failed, using fallback:', aiError.message);
+      const defaultKeywords = {
+        'electronics': ['bluetooth earbuds', 'fast charger', 'smartwatch', 'power bank'],
+        'fashion': ['summer dress', 'sneakers', 'handbag', 'sunglasses'],
+        'home': ['kitchen gadgets', 'home decor', 'organizer', 'LED lights'],
+        'beauty': ['makeup set', 'skincare', 'perfume', 'hair tools'],
+        'kids': ['educational toys', 'kids clothes', 'electronic games'],
+        'sports': ['fitness equipment', 'sportswear', 'camping gear']
+      };
+      res.json({ 
+        success: true, 
+        keywords: defaultKeywords[category] || ['trending', 'best seller', 'hot deals'],
+        method: 'fallback'
+      });
+    }
   } catch (error) {
     console.error('AI suggest keywords error:', error);
-    res.status(500).json({ success: false, error: 'فشل اقتراح الكلمات' });
+    const defaultKeywords = ['trending', 'best seller', 'hot deals'];
+    res.json({ success: true, keywords: defaultKeywords, method: 'fallback' });
   }
 });
 
@@ -623,10 +641,11 @@ app.post('/api/analyze-product', async (req, res) => {
       });
     }
 
-    const localGenAI = new GoogleGenerativeAI(currentApiKey);
-    const localModel = localGenAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-    
-    const prompt = `أنت خبير تسويق جزائري. حلل هذا المنتج للسوق الجزائري:
+    try {
+      const localGenAI = new GoogleGenerativeAI(currentApiKey);
+      const localModel = localGenAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+      
+      const prompt = `أنت خبير تسويق جزائري. حلل هذا المنتج للسوق الجزائري:
 
 المنتج: ${title}
 السعر: ${price}
@@ -638,30 +657,56 @@ app.post('/api/analyze-product', async (req, res) => {
 
 أجب بصيغة JSON فقط:
 {"score": 8, "pros": ["ميزة 1", "ميزة 2"], "hook": "النص"}`;
-    
-    const result = await localModel.generateContent(prompt);
-    const responseText = result.response.text().trim();
-    
-    let analysis;
-    try {
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        analysis = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('No JSON found');
+      
+      const result = await localModel.generateContent(prompt);
+      const responseText = result.response.text().trim();
+      
+      let analysis;
+      try {
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          analysis = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('No JSON found');
+        }
+      } catch (e) {
+        analysis = {
+          score: 7,
+          pros: ['منتج جيد', 'سعر معقول'],
+          hook: 'عرض ما يتفوتش، غير كليكيو!'
+        };
       }
-    } catch (e) {
-      analysis = {
-        score: 7,
-        pros: ['منتج جيد', 'سعر معقول'],
-        hook: 'عرض ما يتفوتش، غير كليكيو!'
-      };
+      
+      res.json({ success: true, analysis, method: 'ai' });
+    } catch (aiError) {
+      console.log('AI analyze failed, using fallback:', aiError.message);
+      const fallbackHooks = [
+        'يا خاوتي شوفو هاد لافير الخطيرة!',
+        'سلعة هبال وسومة ما تتفوتش!',
+        'عرض خاص لخاوتنا، ما تفوتوهش!',
+        'جبتلكم عرض هايل اليوم!'
+      ];
+      res.json({ 
+        success: true, 
+        analysis: {
+          score: 7,
+          pros: ['سعر مناسب', 'منتج مطلوب'],
+          hook: fallbackHooks[Math.floor(Math.random() * fallbackHooks.length)]
+        },
+        method: 'fallback'
+      });
     }
-    
-    res.json({ success: true, analysis, method: 'ai' });
   } catch (error) {
     console.error('Analyze product error:', error);
-    res.status(500).json({ success: false, error: 'فشل تحليل المنتج' });
+    res.json({ 
+      success: true, 
+      analysis: {
+        score: 7,
+        pros: ['سعر مناسب', 'منتج مطلوب'],
+        hook: 'يا خاوتي شوفو هاد لافير الخطيرة!'
+      },
+      method: 'fallback'
+    });
   }
 });
 
