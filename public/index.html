@@ -566,6 +566,14 @@
             }
         });
 
+        const linkTypes = [
+            { key: 'coin', title: '💰 رابط العملات (خصم إضافي)', icon: 'fa-coins', color: '#FFD700' },
+            { key: 'point', title: '💎 رابط النقاط', icon: 'fa-gem', color: '#00D4FF' },
+            { key: 'super', title: '🔥 سوبر ديل', icon: 'fa-bolt', color: '#FF4500' },
+            { key: 'limit', title: '⏳ عرض محدود', icon: 'fa-clock', color: '#FF007F' },
+            { key: 'bundle', title: '📦 عرض 3 قطع (Bundle)', icon: 'fa-layer-group', color: '#8A2BE2' }
+        ];
+
         function showResults(data) {
             currentProductData = data;
             productImage.src = data.image || '';
@@ -578,16 +586,26 @@
             
             linksContainer.innerHTML = '';
             linkSelect.innerHTML = '<option value="">-- اختر الرابط --</option>';
+            
+            // Map data keys correctly
+            const linkData = {
+                coin: data.links.coin,
+                point: data.links.point,
+                super: data.links.super,
+                limit: data.links.limit,
+                bundle: data.links.bundle || data.links.ther3
+            };
+
             linkTypes.forEach(type => {
-                const link = data.links[type.key];
+                const link = linkData[type.key];
                 if (link) {
                     linkSelect.innerHTML += `<option value="${link}">${type.title}</option>`;
-                    linksContainer.innerHTML += `<div class="link-card">
-                        <div class="link-header"><span>${type.title}</span><i class="fas ${type.icon}"></i></div>
+                    linksContainer.innerHTML += `<div class="link-card" style="border-right: 5px solid ${type.color};">
+                        <div class="link-header"><span style="color: ${type.color}; font-weight: 700;">${type.title}</span><i class="fas ${type.icon}" style="color: ${type.color};"></i></div>
                         <div class="link-text">${link}</div>
                         <div class="link-actions">
                             <button class="action-btn open-btn" onclick="window.open('${link}', '_blank')"><i class="fas fa-external-link-alt"></i> فتح</button>
-                            <button class="action-btn copy-btn" onclick="navigator.clipboard.writeText('${link}').then(() => showToast('تم النسخ'))"><i class="fas fa-copy"></i> نسخ</button>
+                            <button class="action-btn copy-btn" style="background: ${type.color};" onclick="navigator.clipboard.writeText('${link}').then(() => showToast('تم النسخ'))"><i class="fas fa-copy"></i> نسخ</button>
                             <button class="action-btn tele-btn" onclick="openTelePage('${link}')">صفحة النشر</button>
                         </div>
                     </div>`;
