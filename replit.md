@@ -28,22 +28,15 @@ npm start
 ```
 
 ## Features
-- Generate single AliExpress affiliate link from any product URL
+- Generate AliExpress affiliate links
 - Frame product images with custom borders
 - Publish offers to Telegram channels
 - Schedule posts for later
 - PWA support for mobile installation
-- AI-powered title refinement and Algerian dialect hooks (using Gemini AI)
 - **Discover Winning Products** - Search for hot products using AliExpress API with optional Gemini AI ranking
   - AI-powered keyword suggestions for Algerian market
   - Product analysis with AI scoring and hooks in Algerian dialect
   - Fallback mode works without Gemini API key
-
-## Recent Changes (January 2026)
-- Simplified affiliate link generation: Now generates a single affiliate link instead of multiple types (coin, point, super, limit, bundle)
-- Updated UI to show one affiliate link with copy/open/publish buttons
-- Fixed image framing for uploaded images (base64 support)
-- Separated title refinement and intro generation buttons in Telegram page
 
 ## Environment Variables (Optional)
 - `TELEGRAM_BOT_TOKEN` - Telegram bot token
