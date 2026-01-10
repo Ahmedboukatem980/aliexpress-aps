@@ -251,6 +251,13 @@
                     <label>كود الكوبون (اختياري):</label>
                     <input type="text" id="couponInput" placeholder="مثال: ALIOFFERS5">
                 </div>
+                
+                <div class="form-group">
+                    <label>📝 معاينة المنشور (AI):</label>
+                    <textarea id="aiPreview" style="min-height: 150px; font-size: 13px; background: rgba(255,255,255,0.02);" placeholder="سيظهر المنشور المولد هنا..."></textarea>
+                    <p class="settings-hint">يمكنك تعديل النص هنا قبل نسخه أو نشره.</p>
+                </div>
+
                 <button class="publish-btn" id="publishBtn" disabled><i class="fab fa-telegram"></i> نشر المنشور الآن</button>
             </div>
         </div>
@@ -544,13 +551,14 @@
                     aiText += `${settings.footer}\n\n`;
                     aiText += `${settings.hashtags}`;
 
+                    // Show in preview area
+                    const aiPreview = document.getElementById('aiPreview');
+                    aiPreview.value = aiText;
+                    
                     // Auto-fill footer or just show preview? Let's just update a preview if we had one
                     // For now, let's copy to clipboard and show toast
                     await navigator.clipboard.writeText(aiText);
                     showToast("تم تأليف المنشور ونسخه للحافظة! ✨");
-                    
-                    // Also alert user with the text
-                    alert("تم توليد المنشور بنجاح:\n\n" + aiText);
                 }
             } catch (err) {
                 console.error(err);
