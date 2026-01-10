@@ -571,7 +571,7 @@
             { key: 'point', title: '💎 رابط النقاط', icon: 'fa-gem', color: '#00D4FF', bgColor: 'rgba(0, 212, 255, 0.1)' },
             { key: 'super', title: '🔥 سوبر ديل', icon: 'fa-bolt', color: '#FF4500', bgColor: 'rgba(255, 69, 0, 0.1)' },
             { key: 'limit', title: '⏳ عرض محدود', icon: 'fa-clock', color: '#FF007F', bgColor: 'rgba(255, 0, 127, 0.1)' },
-            { key: 'bundle', title: '📦 عرض 3 قطع (Bundle)', icon: 'fa-layer-group', color: '#8A2BE2', bgColor: 'rgba(138, 43, 226, 0.1)' }
+            { key: 'bundle', title: '📦 عرض 3 قطع (Bundle)', icon: 'fa-layer-group', color: '#ff4444', bgColor: 'rgba(255, 68, 68, 0.1)', isBundle: true }
         ];
 
         function showResults(data) {
@@ -599,7 +599,11 @@
                 const link = linkData[type.key];
                 if (link) {
                     linkSelect.innerHTML += `<option value="${link}">${type.title}</option>`;
-                    linksContainer.innerHTML += `<div class="link-card" style="border-right: 5px solid ${type.color}; background: ${type.bgColor};">
+                    const borderStyle = type.isBundle ? 'border: 3px solid #ff4444; animation: pulse-red 2s infinite;' : `border-right: 5px solid ${type.color};`;
+                    const badge = type.isBundle ? `<div style="background: #ff4444; color: #fff; padding: 2px 10px; border-radius: 5px; font-size: 10px; margin-bottom: 5px; display: inline-block;">عرض Bundle مميز</div>` : '';
+                    
+                    linksContainer.innerHTML += `<div class="link-card" style="${borderStyle} background: ${type.bgColor}; position: relative;">
+                        ${badge}
                         <div class="link-header"><span style="color: ${type.color}; font-weight: 700;">${type.title}</span><i class="fas ${type.icon}" style="color: ${type.color};"></i></div>
                         <div class="link-text" style="color: #ccc; opacity: 0.9;">${link}</div>
                         <div class="link-actions">
@@ -610,6 +614,21 @@
                     </div>`;
                 }
             });
+            
+            // Add pulse animation if not exists
+            if (!document.getElementById('bundle-style')) {
+                const style = document.createElement('style');
+                style.id = 'bundle-style';
+                style.innerHTML = \`
+                    @keyframes pulse-red {
+                        0% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.4); }
+                        70% { box-shadow: 0 0 0 10px rgba(255, 68, 68, 0); }
+                        100% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0); }
+                    }
+                \`;
+                document.head.appendChild(style);
+            }
+            
             results.classList.add('show');
         }
 
