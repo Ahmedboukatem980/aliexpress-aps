@@ -137,8 +137,8 @@
             </div>
 
             <div class="preview-card">
-                <div class="preview-title">معاينة المنشور</div>
-                <div class="preview-content" id="previewContent">أضف منتجات لمعاينة المنشور...</div>
+                <div class="preview-title">معاينة المنشور (قابلة للتعديل)</div>
+                <textarea id="previewContent" style="width: 100%; min-height: 200px; background: transparent; border: none; color: #fff; font-family: inherit; font-size: 12px; line-height: 1.8; direction: rtl; resize: vertical; padding: 0; outline: none;" spellcheck="false">أضف منتجات لمعاينة المنشور...</textarea>
             </div>
 
             <div class="action-buttons">
@@ -287,11 +287,19 @@
 
         function updatePreview() {
             if (products.length === 0) {
-                previewContent.textContent = 'أضف منتجات لمعاينة المنشور...';
+                previewContent.value = 'أضف منتجات لمعاينة المنشور...';
                 return;
             }
-            previewContent.textContent = generateMessage();
+            previewContent.value = generateMessage();
+            autoResizePreview();
         }
+
+        function autoResizePreview() {
+            previewContent.style.height = 'auto';
+            previewContent.style.height = (previewContent.scrollHeight) + 'px';
+        }
+
+        previewContent.oninput = autoResizePreview;
 
         addProductBtn.onclick = async () => {
             const url = productUrl.value.trim();
@@ -391,7 +399,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        message: generateMessage(),
+                        message: previewContent.value,
                         image: imageToSend,
                         credentials: credentials
                     })
@@ -412,7 +420,7 @@
         };
 
         copyBtn.onclick = () => {
-            navigator.clipboard.writeText(generateMessage()).then(() => {
+            navigator.clipboard.writeText(previewContent.value).then(() => {
                 showToast('تم نسخ المنشور ✅', 'success');
             });
         };
