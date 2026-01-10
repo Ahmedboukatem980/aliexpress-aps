@@ -573,18 +573,27 @@
             productDiscount.textContent = data.discount ? `-${data.discount}%` : '';
             productDiscount.style.display = data.discount ? 'inline-block' : 'none';
             
-            // Show single affiliate link
+            // Show single affiliate link or error
             if (data.affiliateLink) {
                 affiliateLinkText.textContent = data.affiliateLink;
+                affiliateLinkText.style.color = '';
                 affiliateLinkContainer.style.display = 'block';
                 
                 document.getElementById('openLinkBtn').onclick = () => window.open(data.affiliateLink, '_blank');
+                document.getElementById('openLinkBtn').disabled = false;
                 document.getElementById('copyLinkBtn').onclick = () => {
                     navigator.clipboard.writeText(data.affiliateLink).then(() => showToast('تم النسخ ✅'));
                 };
+                document.getElementById('copyLinkBtn').disabled = false;
                 document.getElementById('telePageBtn').onclick = () => openTelePage(data.affiliateLink);
+                document.getElementById('telePageBtn').disabled = false;
             } else {
-                affiliateLinkContainer.style.display = 'none';
+                affiliateLinkContainer.style.display = 'block';
+                affiliateLinkText.textContent = data.affiliateLinkError || '⚠️ فشل توليد رابط الأفلييت. تأكد من صلاحية الـ Cookie في الإعدادات.';
+                affiliateLinkText.style.color = '#e74c3c';
+                document.getElementById('openLinkBtn').disabled = true;
+                document.getElementById('copyLinkBtn').disabled = true;
+                document.getElementById('telePageBtn').disabled = true;
             }
             
             results.classList.add('show');

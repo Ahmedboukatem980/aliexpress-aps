@@ -143,7 +143,8 @@ app.post('/api/affiliate', async (req, res) => {
         shop_name: result.previews.shop_name,
         rating: result.previews.rating,
         orders: result.previews.orders,
-        affiliateLink: result.affiliateLink
+        affiliateLink: result.affiliateLink,
+        affiliateLinkError: result.affiliateLinkError
       }
     });
   } catch (error) {

@@ -244,6 +244,18 @@ async function fetchLinkPreview(productId) {
 }
 
 
+function isValidAffiliateLink(link) {
+    if (!link || typeof link !== 'string') return false;
+    // Valid affiliate links contain tracking domains
+    const affiliateDomains = [
+        's.click.aliexpress.com',
+        'a.aliexpress.com',
+        'click.aliexpress.com',
+        'star.aliexpress.com'
+    ];
+    return affiliateDomains.some(domain => link.includes(domain));
+}
+
 async function portaffFunction(cookie, ids) {
 
     const idObj = await idCatcher(ids);
@@ -251,7 +263,7 @@ async function portaffFunction(cookie, ids) {
 
     if (!productId) throw new Error("❌ لم يتم استخراج Product ID.");
 
-    let result = { affiliateLink: null, previews: {} };
+    let result = { affiliateLink: null, affiliateLinkError: null, previews: {} };
 
     // Generate single affiliate link using the standard product URL
     const targetUrl = `https://www.aliexpress.com/item/${productId}.html`;
@@ -268,15 +280,36 @@ async function portaffFunction(cookie, ids) {
             responseType: "json"
         });
 
+        console.log("AliExpress API Response:", JSON.stringify(response.body, null, 2));
+
         const data = response.body.data;
+        let generatedLink = null;
+        
         if (data && typeof data === 'object') {
-            result.affiliateLink = data.promotionUrl || data.couponUrl || data.url || null;
+            generatedLink = data.promotionUrl || data.couponUrl || data.url || null;
         } else if (typeof data === 'string') {
-            result.affiliateLink = data;
+            generatedLink = data;
         }
+
+        // Validate that the generated link is actually an affiliate link
+        if (isValidAffiliateLink(generatedLink)) {
+            result.affiliateLink = generatedLink;
+        } else if (generatedLink) {
+            console.log("Generated link is not a valid affiliate link:", generatedLink);
+            result.affiliateLinkError = "الرابط المُولّد ليس رابط أفلييت صحيح. تأكد من صلاحية الـ Cookie.";
+        } else {
+            result.affiliateLinkError = "فشل توليد رابط الأفلييت. تأكد من صلاحية الـ Cookie.";
+        }
+
+        // Check for error responses from API
+        if (response.body.success === false || response.body.code !== undefined) {
+            console.log("API returned error:", response.body);
+            result.affiliateLinkError = "انتهت صلاحية الـ Cookie أو الحساب غير مفعّل. يرجى تحديث الـ Cookie.";
+        }
+
     } catch (err) {
         console.error("Failed to generate affiliate link:", err.message);
-        result.affiliateLink = null;
+        result.affiliateLinkError = "فشل الاتصال بخادم AliExpress. حاول مرة أخرى.";
     }
 
     result.previews = await fetchLinkPreview(productId);
