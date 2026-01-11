@@ -251,6 +251,20 @@ async function portaffFunction(cookie, ids) {
 
     if (!productId) throw new Error("❌ لم يتم استخراج Product ID.");
 
+    // Handle cookie format - user might provide just the value or include xman_t=
+    let cookieStr = cookie.trim();
+    if (cookieStr.includes('xman_t=')) {
+        // Extract the xman_t value from the full cookie string
+        const match = cookieStr.match(/xman_t=([^;]+)/);
+        if (match) {
+            cookieStr = `xman_t=${match[1]};`;
+        }
+    } else {
+        cookieStr = `xman_t=${cookieStr};`;
+    }
+    
+    console.log("Using cookie format:", cookieStr.substring(0, 30) + "...");
+
     const sourceTypes = {
         "555": "coin",
         "620": "point",
@@ -278,12 +292,18 @@ async function portaffFunction(cookie, ids) {
                     targetUrl
                 },
                 headers: {
-                    cookie: `xman_t=${cookie};`
+                    cookie: cookieStr
                 },
                 responseType: "json"
             })
-                .then(r => ({ type: name, data: r.body.data }))
-                .catch(() => ({ type: name, data: null }))
+                .then(r => {
+                    console.log(`✅ ${name} link generated:`, r.body.data ? 'Success' : 'No data');
+                    return { type: name, data: r.body.data };
+                })
+                .catch(err => {
+                    console.log(`❌ ${name} link failed:`, err.message);
+                    return { type: name, data: null };
+                })
         );
     }
 
