@@ -110,21 +110,23 @@ app.post('/api/frame-image', async (req, res) => {
       const fontSize = watermark.size === 'small' ? 24 : watermark.size === 'large' ? 48 : 36;
       const padding = 20;
       
-      // Create SVG text for watermark
-      const svgText = `
-        <svg width="${frameWidth}" height="${frameHeight}">
-          <style>
-            .watermark { 
-              fill: rgba(255, 255, 255, 0.7); 
-              font-size: ${fontSize}px; 
-              font-family: Arial, sans-serif;
-              font-weight: bold;
-              text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-            }
-          </style>
-          <text class="watermark" x="${getWatermarkX(watermark.position, frameWidth, padding)}" y="${getWatermarkY(watermark.position, frameHeight, padding, fontSize)}" text-anchor="${getTextAnchor(watermark.position)}">${watermark.text}</text>
-        </svg>
-      `;
+      // Escape XML special characters
+      const escapedText = watermark.text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+      
+      // Create SVG text for watermark with proper xmlns
+      const svgText = `<svg xmlns="http://www.w3.org/2000/svg" width="${frameWidth}" height="${frameHeight}">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="2" dy="2" stdDeviation="2" flood-color="black" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  <text x="${getWatermarkX(watermark.position, frameWidth, padding)}" y="${getWatermarkY(watermark.position, frameHeight, padding, fontSize)}" text-anchor="${getTextAnchor(watermark.position)}" fill="rgba(255,255,255,0.8)" font-size="${fontSize}" font-family="Arial, sans-serif" font-weight="bold" filter="url(#shadow)">${escapedText}</text>
+</svg>`;
       
       const watermarkBuffer = Buffer.from(svgText);
       composites.push({
