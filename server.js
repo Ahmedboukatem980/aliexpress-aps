@@ -109,32 +109,8 @@ app.post('/api/frame-image', async (req, res) => {
       }])
       .jpeg({ quality: 90 })
       .toBuffer();
-
-    // Apply watermark if requested
-    let finalImageBuffer = framedImage;
-    if (req.body.watermarkText) {
-      const { watermarkText, watermarkPosition } = req.body;
-      const metadata = await sharp(finalImageBuffer).metadata();
-      
-      const svgText = `
-        <svg width="${metadata.width}" height="${metadata.height}">
-          <style>
-            .title { fill: rgba(255, 255, 255, 0.5); font-size: ${Math.round(metadata.width * 0.05)}px; font-weight: bold; font-family: 'Cairo', sans-serif; }
-          </style>
-          <text x="50%" y="50%" text-anchor="middle" class="title" transform="${watermarkPosition === 'center' ? '' : (watermarkPosition === 'bottom' ? `translate(0, ${metadata.height * 0.4})` : `translate(0, -${metadata.height * 0.4})`)}">${watermarkText}</text>
-        </svg>
-      `;
-
-      finalImageBuffer = await sharp(finalImageBuffer)
-        .composite([{
-          input: Buffer.from(svgText),
-          top: 0,
-          left: 0,
-        }])
-        .toBuffer();
-    }
     
-    const base64Image = finalImageBuffer.toString('base64');
+    const base64Image = framedImage.toString('base64');
     res.json({ 
       success: true, 
       framedImage: `data:image/jpeg;base64,${base64Image}` 

@@ -81,22 +81,6 @@
             <button type="button" class="frame-btn" id="frameBtn" style="margin-top: 10px; padding: 12px 20px; background: linear-gradient(135deg, #FF9800, #F57C00); border: none; border-radius: 10px; color: #fff; font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%;">
                 <i class="fas fa-image"></i> إضافة إطار للصورة
             </button>
-            
-            <div id="watermarkOptions" style="margin-top: 15px; background: #16213e; padding: 15px; border-radius: 10px; border: 1px solid #2d2d44;">
-                <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; cursor: pointer;">
-                    <input type="checkbox" id="useWatermark" style="width: 20px; height: 20px;">
-                    <span style="font-size: 14px; color: #fff;">إضافة علامة مائية (Watermark)</span>
-                </label>
-                <div id="watermarkSettings" style="display: none;">
-                    <input type="text" id="watermarkText" placeholder="أدخل نص العلامة (مثلاً اسم قناتك)" style="margin-bottom: 10px; font-size: 12px; padding: 10px;">
-                    <select id="watermarkPosition" style="font-size: 12px; padding: 10px;">
-                        <option value="center">في الوسط</option>
-                        <option value="bottom">في الأسفل</option>
-                        <option value="top">في الأعلى</option>
-                    </select>
-                </div>
-            </div>
-
             <img class="image-preview" id="imagePreview">
             <input type="hidden" id="framedImageData">
         </div>
@@ -198,19 +182,7 @@
         const refineTitleBtn = document.getElementById('refineTitleBtn');
         const algerianHook = document.getElementById('algerianHook');
         const generateHookBtn = document.getElementById('generateHookBtn');
-        const useWatermark = document.getElementById('useWatermark');
-        const watermarkSettings = document.getElementById('watermarkSettings');
-        const watermarkText = document.getElementById('watermarkText');
-        const watermarkPosition = document.getElementById('watermarkPosition');
-        
-        useWatermark.onchange = () => {
-            watermarkSettings.style.display = useWatermark.checked ? 'block' : 'none';
-        };
-
-        // Initialize watermark text from settings if possible
-        if (settings.botLink) {
-            watermarkText.value = settings.botLink;
-        }
+        let isFramed = false;
 
         generateHookBtn.onclick = async () => {
             const currentTitle = productTitle.value.trim();
@@ -370,16 +342,10 @@
             frameBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري إنشاء الإطار...';
 
             try {
-                const body = { imageUrl: imageUrl };
-                if (useWatermark.checked && watermarkText.value.trim()) {
-                    body.watermarkText = watermarkText.value.trim();
-                    body.watermarkPosition = watermarkPosition.value;
-                }
-
                 const res = await fetch('/api/frame-image', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
+                    body: JSON.stringify({ imageUrl: imageUrl })
                 });
 
                 const result = await res.json();
