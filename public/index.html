@@ -579,9 +579,12 @@
             
             linksContainer.innerHTML = '';
             linkSelect.innerHTML = '<option value="">-- اختر الرابط --</option>';
+            
+            let hasLinks = false;
             linkTypes.forEach(type => {
-                const link = data.links[type.key];
+                const link = data.links?.[type.key];
                 if (link) {
+                    hasLinks = true;
                     linkSelect.innerHTML += `<option value="${link}">${type.title}</option>`;
                     linksContainer.innerHTML += `<div class="link-card">
                         <div class="link-header"><span>${type.title}</span><i class="fas ${type.icon}"></i></div>
@@ -594,6 +597,17 @@
                     </div>`;
                 }
             });
+            
+            if (!hasLinks) {
+                linksContainer.innerHTML = `<div class="warning-card" style="margin-top: 0;">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <div style="text-align: right;">
+                        <strong>لم يتم توليد الروابط</strong><br>
+                        <span style="font-size: 12px; opacity: 0.8;">تأكد من إدخال Cookie صالح في الإعدادات ⚙️</span>
+                    </div>
+                </div>`;
+            }
+            
             results.classList.add('show');
         }
 
