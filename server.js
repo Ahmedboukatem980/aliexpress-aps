@@ -70,16 +70,14 @@ async function downloadImage(url) {
 
 app.post('/api/frame-image', async (req, res) => {
   try {
-    const { imageUrl } = req.body;
+    const { imageUrl, watermark } = req.body;
     if (!imageUrl) return res.status(400).json({ success: false, error: 'يرجى إرسال رابط الصورة' });
 
     let productImageBuffer;
     if (imageUrl.startsWith('data:image')) {
-      // Handle base64 uploaded image
       const base64Data = imageUrl.replace(/^data:image\/\w+;base64,/, '');
       productImageBuffer = Buffer.from(base64Data, 'base64');
     } else {
-      // Handle remote URL
       productImageBuffer = await downloadImage(imageUrl);
     }
     
@@ -100,13 +98,45 @@ app.post('/api/frame-image', async (req, res) => {
       .resize(innerWidth, innerHeight, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } })
       .toBuffer();
     
-    const framedImage = await sharp(useFramePath)
-      .composite([{
-        input: resizedProduct,
-        left: innerLeft,
-        top: innerTop,
+    let composites = [{
+      input: resizedProduct,
+      left: innerLeft,
+      top: innerTop,
+      blend: 'over'
+    }];
+    
+    // Add watermark if provided
+    if (watermark && watermark.text && watermark.text.trim()) {
+      const fontSize = watermark.size === 'small' ? 24 : watermark.size === 'large' ? 48 : 36;
+      const padding = 20;
+      
+      // Create SVG text for watermark
+      const svgText = `
+        <svg width="${frameWidth}" height="${frameHeight}">
+          <style>
+            .watermark { 
+              fill: rgba(255, 255, 255, 0.7); 
+              font-size: ${fontSize}px; 
+              font-family: Arial, sans-serif;
+              font-weight: bold;
+              text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            }
+          </style>
+          <text class="watermark" x="${getWatermarkX(watermark.position, frameWidth, padding)}" y="${getWatermarkY(watermark.position, frameHeight, padding, fontSize)}" text-anchor="${getTextAnchor(watermark.position)}">${watermark.text}</text>
+        </svg>
+      `;
+      
+      const watermarkBuffer = Buffer.from(svgText);
+      composites.push({
+        input: watermarkBuffer,
+        left: 0,
+        top: 0,
         blend: 'over'
-      }])
+      });
+    }
+    
+    const framedImage = await sharp(useFramePath)
+      .composite(composites)
       .jpeg({ quality: 90 })
       .toBuffer();
     
@@ -120,6 +150,52 @@ app.post('/api/frame-image', async (req, res) => {
     res.status(500).json({ success: false, error: 'فشل في إنشاء الصورة المؤطرة' });
   }
 });
+
+// Helper functions for watermark positioning
+function getWatermarkX(position, width, padding) {
+  switch(position) {
+    case 'top-left':
+    case 'bottom-left':
+      return padding;
+    case 'top-right':
+    case 'bottom-right':
+      return width - padding;
+    case 'center':
+      return width / 2;
+    default:
+      return width - padding;
+  }
+}
+
+function getWatermarkY(position, height, padding, fontSize) {
+  switch(position) {
+    case 'top-left':
+    case 'top-right':
+      return padding + fontSize;
+    case 'bottom-left':
+    case 'bottom-right':
+      return height - padding;
+    case 'center':
+      return height / 2;
+    default:
+      return height - padding;
+  }
+}
+
+function getTextAnchor(position) {
+  switch(position) {
+    case 'top-left':
+    case 'bottom-left':
+      return 'start';
+    case 'top-right':
+    case 'bottom-right':
+      return 'end';
+    case 'center':
+      return 'middle';
+    default:
+      return 'end';
+  }
+}
 
 app.post('/api/affiliate', async (req, res) => {
   try {

@@ -323,6 +323,26 @@
                     <p class="settings-hint">يفضل استخدام صورة مربعة (1:1) وبصيغة JPG أو PNG.</p>
                 </div>
                 
+                <div class="form-group">
+                    <label>💧 العلامة المائية (Watermark):</label>
+                    <input type="text" id="settingWatermarkText" placeholder="مثال: @AliOffersDZ">
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <select id="settingWatermarkPosition" style="flex: 1; padding: 10px; border-radius: 8px; border: 2px solid #2d2d44; background: #16213e; color: #fff; font-family: 'Cairo', sans-serif;">
+                            <option value="bottom-right">أسفل يمين</option>
+                            <option value="bottom-left">أسفل يسار</option>
+                            <option value="top-right">أعلى يمين</option>
+                            <option value="top-left">أعلى يسار</option>
+                            <option value="center">وسط</option>
+                        </select>
+                        <select id="settingWatermarkSize" style="flex: 1; padding: 10px; border-radius: 8px; border: 2px solid #2d2d44; background: #16213e; color: #fff; font-family: 'Cairo', sans-serif;">
+                            <option value="small">صغير</option>
+                            <option value="medium">متوسط</option>
+                            <option value="large">كبير</option>
+                        </select>
+                    </div>
+                    <p class="settings-hint">سيتم إضافة العلامة المائية تلقائياً عند إضافة إطار للصورة.</p>
+                </div>
+                
                 <hr>
                 <h3 style="color: #FF6B35; margin-bottom: 15px; font-size: 16px;">🔐 إعدادات الحساب</h3>
                 
@@ -402,7 +422,10 @@
             channelId2: '@AliOffers_Dz',
             cook: '',
             appKey: '',
-            appSecret: ''
+            appSecret: '',
+            watermarkText: '',
+            watermarkPosition: 'bottom-right',
+            watermarkSize: 'medium'
         };
 
         let settings = JSON.parse(localStorage.getItem('appSettings')) || { ...defaultSettings };
@@ -424,6 +447,9 @@
             document.getElementById('settingCook').value = settings.cook || '';
             document.getElementById('settingAppKey').value = settings.appKey || '';
             document.getElementById('settingAppSecret').value = settings.appSecret || '';
+            document.getElementById('settingWatermarkText').value = settings.watermarkText || '';
+            document.getElementById('settingWatermarkPosition').value = settings.watermarkPosition || 'bottom-right';
+            document.getElementById('settingWatermarkSize').value = settings.watermarkSize || 'medium';
             document.getElementById('settingsModal').classList.add('show');
         }
 
@@ -444,6 +470,9 @@
             settings.cook = document.getElementById('settingCook').value;
             settings.appKey = document.getElementById('settingAppKey').value;
             settings.appSecret = document.getElementById('settingAppSecret').value;
+            settings.watermarkText = document.getElementById('settingWatermarkText').value;
+            settings.watermarkPosition = document.getElementById('settingWatermarkPosition').value;
+            settings.watermarkSize = document.getElementById('settingWatermarkSize').value;
             
             localStorage.setItem('appSettings', JSON.stringify(settings));
             document.getElementById('warningText').textContent = settings.warning;
