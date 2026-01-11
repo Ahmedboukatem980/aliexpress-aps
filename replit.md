@@ -37,13 +37,6 @@ npm start
   - AI-powered keyword suggestions for Algerian market
   - Product analysis with AI scoring and hooks in Algerian dialect
   - Fallback mode works without Gemini API key
-- **Scheduler Dashboard** (`/scheduler.html`) - Visual timeline for managing scheduled posts
-  - Timeline view showing posts by hour (8 AM - 11 PM)
-  - Date navigation to browse different days
-  - Conflict detection (warns if posts are within 30 minutes of each other)
-  - Optimal time suggestions for empty slots
-  - Edit/delete scheduled posts
-  - Statistics: today's posts, pending, published counts
 
 ## Environment Variables (Optional)
 - `TELEGRAM_BOT_TOKEN` - Telegram bot token
