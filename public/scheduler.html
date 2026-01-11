@@ -171,14 +171,14 @@
 
         function formatDate(date) {
             const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            return date.toLocaleDateString('ar-EG', options);
+            return date.toLocaleDateString('ar-DZ', options);
         }
 
         function formatHour(hour) {
-            if (hour === 0) return '12 ص';
-            if (hour === 12) return '12 م';
-            if (hour < 12) return `${hour} ص`;
-            return `${hour - 12} م`;
+            if (hour === 0) return '12 صباحاً';
+            if (hour === 12) return '12 مساءً';
+            if (hour < 12) return `${hour} صباحاً`;
+            return `${hour - 12} مساءً`;
         }
 
         function isToday(date) {
@@ -242,7 +242,7 @@
                             ${hourPosts.map(p => `
                                 <div class="post-chip" onclick="openEditModal('${p.id}')">
                                     <i class="fas fa-file-alt"></i>
-                                    <span class="post-title">${p.message.substring(0, 30)}...</span>
+                                    <span class="post-title">${p.title || (p.message ? p.message.substring(0, 30) + '...' : 'بدون عنوان')}</span>
                                     <div class="post-actions">
                                         <button onclick="event.stopPropagation(); openEditModal('${p.id}')"><i class="fas fa-edit"></i></button>
                                     </div>
