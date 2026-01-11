@@ -64,6 +64,69 @@ class PostScheduler {
     this.saveScheduledPosts();
   }
 
+  updatePost(id, updates) {
+    const post = this.scheduledPosts.find(p => p.id === id);
+    if (post) {
+      if (updates.scheduledTime) post.scheduledTime = updates.scheduledTime;
+      if (updates.message) post.message = updates.message;
+      if (updates.channelChoice) post.channelChoice = updates.channelChoice;
+      this.saveScheduledPosts();
+      return post;
+    }
+    return null;
+  }
+
+  getPostsByDate(date) {
+    const targetDate = new Date(date).toDateString();
+    return this.scheduledPosts.filter(p => {
+      const postDate = new Date(p.scheduledTime).toDateString();
+      return postDate === targetDate && p.status === 'pending';
+    });
+  }
+
+  getConflicts(scheduledTime, excludeId = null) {
+    const targetTime = new Date(scheduledTime);
+    const conflicts = [];
+    
+    this.scheduledPosts.forEach(p => {
+      if (p.status !== 'pending') return;
+      if (excludeId && p.id === excludeId) return;
+      
+      const postTime = new Date(p.scheduledTime);
+      const diffMinutes = Math.abs((targetTime - postTime) / (1000 * 60));
+      
+      if (diffMinutes < 30) {
+        conflicts.push({
+          post: p,
+          diffMinutes: Math.round(diffMinutes)
+        });
+      }
+    });
+    
+    return conflicts;
+  }
+
+  suggestOptimalTimes(date, count = 5) {
+    const targetDate = new Date(date);
+    const suggestions = [];
+    const existingPosts = this.getPostsByDate(date);
+    const occupiedHours = existingPosts.map(p => new Date(p.scheduledTime).getHours());
+    
+    // Suggest hours between 9 AM and 11 PM
+    for (let hour = 9; hour <= 23; hour++) {
+      if (!occupiedHours.includes(hour)) {
+        const suggestedTime = new Date(targetDate);
+        suggestedTime.setHours(hour, 0, 0, 0);
+        if (suggestedTime > new Date()) {
+          suggestions.push(suggestedTime.toISOString());
+        }
+      }
+      if (suggestions.length >= count) break;
+    }
+    
+    return suggestions;
+  }
+
   getScheduledPosts() {
     return this.scheduledPosts.filter(p => p.status === 'pending');
   }

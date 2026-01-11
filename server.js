@@ -482,6 +482,44 @@ app.delete('/api/scheduled-posts/:id', (req, res) => {
   res.json({ success: true });
 });
 
+app.put('/api/scheduled-posts/:id', (req, res) => {
+  try {
+    const { scheduledTime, message, channelChoice } = req.body;
+    const updated = postScheduler.updatePost(req.params.id, {
+      scheduledTime,
+      message,
+      channelChoice
+    });
+    if (updated) {
+      res.json({ success: true, post: updated });
+    } else {
+      res.status(404).json({ success: false, error: 'المنشور غير موجود' });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/scheduler/suggestions', (req, res) => {
+  try {
+    const { date } = req.query;
+    const suggestions = postScheduler.suggestOptimalTimes(date || new Date().toISOString());
+    res.json({ success: true, suggestions });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/scheduler/conflicts', (req, res) => {
+  try {
+    const { time, exclude } = req.query;
+    const conflicts = postScheduler.getConflicts(time, exclude);
+    res.json({ success: true, conflicts });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 const algerianCategories = {
   'electronics': { id: '44', nameAr: 'إلكترونيات', keywords: ['phone accessories', 'earbuds', 'smartwatch', 'power bank'] },
   'fashion': { id: '3', nameAr: 'أزياء', keywords: ['dress', 'jacket', 'shoes', 'bags'] },
