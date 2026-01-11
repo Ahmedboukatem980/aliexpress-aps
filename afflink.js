@@ -263,8 +263,6 @@ async function portaffFunction(cookie, ids) {
         cookieStr = `xman_t=${cookieStr};`;
     }
     
-    console.log("Using cookie format:", cookieStr.substring(0, 30) + "...");
-
     const sourceTypes = {
         "555": "coin",
         "620": "point",
@@ -296,14 +294,8 @@ async function portaffFunction(cookie, ids) {
                 },
                 responseType: "json"
             })
-                .then(r => {
-                    console.log(`✅ ${name} link generated:`, r.body.data ? 'Success' : 'No data');
-                    return { type: name, data: r.body.data };
-                })
-                .catch(err => {
-                    console.log(`❌ ${name} link failed:`, err.message);
-                    return { type: name, data: null };
-                })
+                .then(r => ({ type: name, data: r.body.data }))
+                .catch(() => ({ type: name, data: null }))
         );
     }
 
