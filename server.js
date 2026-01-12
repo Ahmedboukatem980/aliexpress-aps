@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const axios = require('axios');
 const { portaffFunction } = require('./afflink');
 const { searchHotProducts, searchProducts } = require('./aliexpress-api');
 const { Telegraf } = require('telegraf');
@@ -1010,44 +1009,6 @@ app.get('/api/categories', (req, res) => {
     aliexpressId: value.id
   }));
   res.json({ success: true, categories });
-});
-
-// Live Affiliate Orders Tracking API
-app.get('/api/live-orders', async (req, res) => {
-  const { start, end } = req.query;
-  
-  // Demo data - replace with real AliExpress Portals API when cookie available
-  // Note: Real implementation requires valid AliExpress Portals cookie
-  res.json({
-    success: true,
-    summary: { totalCount: 7, totalCommission: 12.45, totalSales: 156.20 },
-    orders: [
-      { time: start || '2026-01-12', orderId: '3067226601023466', productName: 'سماعات بلوتوث لاسلكية', status: 'Completed', amount: 15.50, commission: 1.20 },
-      { time: start || '2026-01-12', orderId: '3067226601073466', productName: 'ساعة ذكية رياضية', status: 'Completed', amount: 22.00, commission: 2.10 },
-      { time: start || '2026-01-12', orderId: '3067226600983466', productName: 'شاحن سريع USB-C', status: 'Pending', amount: 45.00, commission: 3.50 },
-      { time: start || '2026-01-12', orderId: '3067226601043466', productName: 'حافظة هاتف مقاومة', status: 'Completed', amount: 12.00, commission: 0.85 },
-      { time: start || '2026-01-12', orderId: '3067226601003466', productName: 'مصباح LED ذكي', status: 'Completed', amount: 33.20, commission: 2.50 },
-      { time: start || '2026-01-12', orderId: '3067226600943466', productName: 'كابل شحن مغناطيسي', status: 'Completed', amount: 18.50, commission: 1.40 },
-      { time: start || '2026-01-12', orderId: '3067226600963466', productName: 'ميزان حرارة رقمي', status: 'Completed', amount: 10.00, commission: 0.90 }
-    ]
-  });
-});
-
-// Tracking API endpoint (Proxy for tracking services)
-app.get('/api/track/:number', async (req, res) => {
-  const { number } = req.params;
-  try {
-    // For demonstration, we'll provide a mock response for now
-    res.json({
-      success: true,
-      events: [
-        { time: new Date().toLocaleString(), status: "جاري المعالجة", description: "تم استلام معلومات الشحنة" },
-        { time: new Date().toLocaleString(), status: "في انتظار الشحن", description: "المنتج جاهز للشحن من قبل البائع" }
-      ]
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
 });
 
 const PORT = process.env.PORT || 5000;
