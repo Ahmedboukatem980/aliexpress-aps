@@ -78,9 +78,14 @@
                     <input type="file" id="imageUpload" accept="image/*" style="display: none;">
                 </label>
             </div>
-            <button type="button" class="frame-btn" id="frameBtn" style="margin-top: 10px; padding: 12px 20px; background: linear-gradient(135deg, #FF9800, #F57C00); border: none; border-radius: 10px; color: #fff; font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%;">
-                <i class="fas fa-image"></i> إضافة إطار للصورة
-            </button>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button type="button" class="frame-btn" id="frameBtn" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #FF9800, #F57C00); border: none; border-radius: 10px; color: #fff; font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fas fa-image"></i> إطار + لوقو
+                </button>
+                <button type="button" id="logoOnlyBtn" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #9C27B0, #7B1FA2); border: none; border-radius: 10px; color: #fff; font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fas fa-stamp"></i> لوقو فقط
+                </button>
+            </div>
             <img class="image-preview" id="imagePreview">
             <input type="hidden" id="framedImageData">
         </div>
@@ -301,8 +306,10 @@
                     productImage.value = 'صورة محملة يدوياً'; // Placeholder
                     framedImageData.value = base64Image;
                     isFramed = true; // Use framedImageData as the source
-                    frameBtn.innerHTML = '<i class="fas fa-image"></i> إضافة إطار للصورة';
+                    frameBtn.innerHTML = '<i class="fas fa-image"></i> إطار + لوقو';
                     frameBtn.style.background = 'linear-gradient(135deg, #FF9800, #F57C00)';
+                    document.getElementById('logoOnlyBtn').innerHTML = '<i class="fas fa-stamp"></i> لوقو فقط';
+                    document.getElementById('logoOnlyBtn').style.background = 'linear-gradient(135deg, #9C27B0, #7B1FA2)';
                 };
                 reader.readAsDataURL(file);
             }
@@ -315,8 +322,10 @@
                 imagePreview.style.display = 'block';
                 isFramed = false;
                 framedImageData.value = '';
-                frameBtn.innerHTML = '<i class="fas fa-image"></i> إضافة إطار للصورة';
+                frameBtn.innerHTML = '<i class="fas fa-image"></i> إطار + لوقو';
                 frameBtn.style.background = 'linear-gradient(135deg, #FF9800, #F57C00)';
+                document.getElementById('logoOnlyBtn').innerHTML = '<i class="fas fa-stamp"></i> لوقو فقط';
+                document.getElementById('logoOnlyBtn').style.background = 'linear-gradient(135deg, #9C27B0, #7B1FA2)';
             } else {
                 imagePreview.style.display = 'none';
             }
@@ -361,13 +370,58 @@
                     showToast('تم إضافة الإطار بنجاح! ✅', 'success');
                 } else {
                     showToast(result.error || 'فشل في إنشاء الإطار', 'error');
-                    frameBtn.innerHTML = '<i class="fas fa-image"></i> إضافة إطار للصورة';
+                    frameBtn.innerHTML = '<i class="fas fa-image"></i> إطار + لوقو';
                 }
             } catch (e) {
                 showToast('خطأ في الاتصال', 'error');
-                frameBtn.innerHTML = '<i class="fas fa-image"></i> إضافة إطار للصورة';
+                frameBtn.innerHTML = '<i class="fas fa-image"></i> إطار + لوقو';
             } finally {
                 frameBtn.disabled = false;
+            }
+        };
+
+        // Logo only button handler
+        const logoOnlyBtn = document.getElementById('logoOnlyBtn');
+        logoOnlyBtn.onclick = async () => {
+            const imageUrl = framedImageData.value || productImage.value;
+            if (!imageUrl || imageUrl === 'صورة محملة يدوياً') {
+                showToast('الرجاء إدخال رابط الصورة أو رفع صورة أولاً', 'error');
+                return;
+            }
+
+            logoOnlyBtn.disabled = true;
+            logoOnlyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+            try {
+                const watermarkSettings = {
+                    position: settings.watermarkPosition || 'bottom-right',
+                    size: settings.watermarkSize || 'medium'
+                };
+                
+                const res = await fetch('/api/add-watermark', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imageUrl: imageUrl, watermark: watermarkSettings })
+                });
+
+                const result = await res.json();
+                if (result.success) {
+                    imagePreview.src = result.framedImage;
+                    imagePreview.style.display = 'block';
+                    framedImageData.value = result.framedImage;
+                    isFramed = true;
+                    logoOnlyBtn.innerHTML = '<i class="fas fa-check"></i> تم';
+                    logoOnlyBtn.style.background = '#4CAF50';
+                    showToast('تم إضافة اللوقو بنجاح! ✅', 'success');
+                } else {
+                    showToast(result.error || 'فشل في إضافة اللوقو', 'error');
+                    logoOnlyBtn.innerHTML = '<i class="fas fa-stamp"></i> لوقو فقط';
+                }
+            } catch (e) {
+                showToast('خطأ في الاتصال', 'error');
+                logoOnlyBtn.innerHTML = '<i class="fas fa-stamp"></i> لوقو فقط';
+            } finally {
+                logoOnlyBtn.disabled = false;
             }
         };
 

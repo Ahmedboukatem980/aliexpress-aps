@@ -65,6 +65,88 @@ app.post('/api/upload-logo', upload.single('logo'), (req, res) => {
   });
 });
 
+// Add logo watermark only (without frame)
+app.post('/api/add-watermark', async (req, res) => {
+  try {
+    const { imageUrl, watermark } = req.body;
+    if (!imageUrl) return res.status(400).json({ success: false, error: 'يرجى إرسال رابط الصورة' });
+
+    let productImageBuffer;
+    if (imageUrl.startsWith('data:image')) {
+      const base64Data = imageUrl.replace(/^data:image\/\w+;base64,/, '');
+      productImageBuffer = Buffer.from(base64Data, 'base64');
+    } else {
+      productImageBuffer = await downloadImage(imageUrl);
+    }
+    
+    const logoPath = path.join(__dirname, 'public', 'watermark_logo.png');
+    if (!fs.existsSync(logoPath)) {
+      return res.status(400).json({ success: false, error: 'يرجى رفع لوقو القناة أولاً من الإعدادات' });
+    }
+    
+    const imageMeta = await sharp(productImageBuffer).metadata();
+    const imageWidth = imageMeta.width;
+    const imageHeight = imageMeta.height;
+    
+    const logoSize = watermark?.size === 'small' ? 80 : watermark?.size === 'large' ? 160 : 120;
+    const padding = 20;
+    
+    const resizedLogo = await sharp(logoPath)
+      .resize(logoSize, logoSize, { fit: 'inside' })
+      .png()
+      .toBuffer();
+    
+    const logoMeta = await sharp(resizedLogo).metadata();
+    const logoW = logoMeta.width;
+    const logoH = logoMeta.height;
+    
+    let left, top;
+    const position = watermark?.position || 'bottom-right';
+    switch(position) {
+      case 'top-left':
+        left = padding;
+        top = padding;
+        break;
+      case 'top-right':
+        left = imageWidth - logoW - padding;
+        top = padding;
+        break;
+      case 'bottom-left':
+        left = padding;
+        top = imageHeight - logoH - padding;
+        break;
+      case 'center':
+        left = Math.round((imageWidth - logoW) / 2);
+        top = Math.round((imageHeight - logoH) / 2);
+        break;
+      case 'bottom-right':
+      default:
+        left = imageWidth - logoW - padding;
+        top = imageHeight - logoH - padding;
+        break;
+    }
+    
+    const watermarkedImage = await sharp(productImageBuffer)
+      .composite([{
+        input: resizedLogo,
+        left: left,
+        top: top,
+        blend: 'over'
+      }])
+      .jpeg({ quality: 90 })
+      .toBuffer();
+    
+    const base64Image = watermarkedImage.toString('base64');
+    res.json({ 
+      success: true, 
+      framedImage: `data:image/jpeg;base64,${base64Image}` 
+    });
+  } catch (error) {
+    console.error('Watermark error:', error);
+    res.status(500).json({ success: false, error: 'فشل في إضافة العلامة المائية' });
+  }
+});
+
 async function downloadImage(url) {
   return new Promise((resolve, reject) => {
     const protocol = url.startsWith('https') ? https : http;
