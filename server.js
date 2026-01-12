@@ -663,16 +663,19 @@ app.post('/api/ai-refine-title', async (req, res) => {
     try {
       let prompt;
       if (isHook) {
-        prompt = `You are an Algerian marketing expert. Rewrite and improve this product hook to be more engaging, catchy, and professional in Algerian Darija (الدارجة الجزائرية). 
-        
-RULES:
-1. Use Arabic letters.
-2. Make it different and better than the original.
-3. Keep it concise (max 12 words).
-4. Return ONLY the new hook text.
-5. No emojis.
+        prompt = `You are an Algerian marketing expert. Make SMALL improvements to this hook in Algerian Darija.
 
-Original hook: ${title}`;
+CRITICAL RULES:
+1. Keep the SAME meaning - only polish wording slightly.
+2. DO NOT rewrite completely or change the main idea.
+3. Fix grammar/spelling, make words flow better.
+4. Keep Arabic letters only.
+5. Keep similar length.
+6. Return ONLY the improved text.
+7. No emojis.
+8. If already good, make minimal changes only.
+
+Original: ${title}`;
       } else {
         prompt = `You are a professional marketing expert specialized in AliExpress deals for the Algerian market.
 Your task is to refine the product title to be more attractive, professional, and engaging for Telegram channel users.
