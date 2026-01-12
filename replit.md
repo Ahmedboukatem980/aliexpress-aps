@@ -49,6 +49,12 @@ npm start
 - **AI Hook Refinement** - Improve user-written Algerian hooks with AI
   - Two buttons: "توليد (AI)" for generating new hooks, "تحسين (AI)" for refining existing ones
 
+## Live Order Tracking
+- Real-time affiliate sales tracking dashboard
+- Shows order dates, IDs, product names, status, amounts, and commissions
+- Summary stats: total orders, expected commission, total sales
+- Date range filtering
+
 ## Product Metadata Extraction
 The app uses multiple fallback methods to extract product title and image:
 1. **AliExpress API** - First attempt using internal API
