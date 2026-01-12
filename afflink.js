@@ -161,12 +161,12 @@ async function fetchLinkPreview(productId) {
         console.log("API fetch failed, falling back to scraping:", apiErr.message);
     }
 
-    // Second option: External API (microlink.io)
+    // Second option: External API (microlink.io) - use mobile domain for better results
     try {
         console.log("Trying microlink.io API...");
         const apiRes = await got('https://api.microlink.io', {
             searchParams: {
-                url: `https://www.aliexpress.com/item/${productId}.html`
+                url: `https://m.aliexpress.com/item/${productId}.html`
             },
             responseType: 'json',
             timeout: { request: 20000 }
@@ -174,10 +174,20 @@ async function fetchLinkPreview(productId) {
         
         const data = apiRes.body;
         if (data.status === 'success' && data.data) {
-            const title = data.data.title || '';
+            let title = data.data.title || '';
             const imageUrl = data.data.image?.url || null;
             
-            if (title && title.length > 10 && !title.includes('AliExpress') && !title.includes('Smarter Shopping')) {
+            // Clean title from AliExpress suffix
+            title = title.replace(/ - AliExpress.*$/i, '').replace(/\s*-\s*AliExpress\s*\d*$/i, '').trim();
+            
+            // Validate: title should be real product name, not just ID
+            const isValidTitle = title && 
+                title.length > 10 && 
+                !title.includes('AliExpress') && 
+                !title.includes('Smarter Shopping') &&
+                !title.match(/^\d+\.html$/);
+            
+            if (isValidTitle) {
                 console.log("✅ Product fetched via microlink.io - Title:", title.substring(0, 50) + "...");
                 return {
                     title: title,
