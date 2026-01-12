@@ -471,7 +471,7 @@ app.post('/api/affiliate', async (req, res) => {
 
 app.post('/api/publish-telegram', async (req, res) => {
   try {
-    const { title, price, link, coupon, image, settings, credentials } = req.body;
+    const { title, price, link, coupon, image, settings, credentials, hook } = req.body;
     const botToken = credentials?.telegramToken || process.env.TELEGRAM_BOT_TOKEN;
     let channelId1 = credentials?.channelId || process.env.TELEGRAM_CHANNEL_ID;
     let channelId2 = credentials?.channelId2 || '@AliOffers_Dz';
@@ -502,7 +502,8 @@ app.post('/api/publish-telegram', async (req, res) => {
       hashtags: '#Aliexpress'
     };
     
-    let message = `&lt;blockquote&gt;${hook}&lt;/blockquote&gt;\n\n`;
+    let message = '';
+    if (hook) message += `<blockquote>${hook}</blockquote>\n\n`;
     message += `${s.prefix} ${title}\n\n`;
     message += `${s.salePrice} ${price}\n\n${s.linkText}\n${link}\n\n`;
     if (coupon) message += `${s.couponText} ${coupon}\n\n`;

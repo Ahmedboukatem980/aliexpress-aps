@@ -136,8 +136,6 @@ bot.on('text', async (ctx) => {
           caption: `
 ${coinPi.previews.title}
 
-&lt;blockquote&gt;${coinPi.previews.hook || 'يا خاوتي شوفو هاد لافير الخطيرة!'}&lt;/blockquote&gt;
-
 <b>🎉 روابط التخفيض</b>
 
 🔹 تخفيض العملات:
