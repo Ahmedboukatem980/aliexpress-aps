@@ -30,6 +30,10 @@ npm start
 ## Features
 - Generate AliExpress affiliate links
 - Frame product images with custom borders
+- **Logo Watermark** - Add channel logo as watermark to framed images
+  - Upload PNG logo with transparent background
+  - 5 position options (corners + center)
+  - 3 size options (small, medium, large)
 - Publish offers to Telegram channels
 - Schedule posts for later
 - PWA support for mobile installation

@@ -324,8 +324,14 @@
                 </div>
                 
                 <div class="form-group">
-                    <label>💧 العلامة المائية (Watermark):</label>
-                    <input type="text" id="settingWatermarkText" placeholder="مثال: @AliOffersDZ">
+                    <label>💧 لوقو القناة (Watermark):</label>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                        <img src="/watermark_logo.png" id="currentLogoPreview" style="width: 60px; height: 60px; border-radius: 8px; border: 1px solid #2d2d44; object-fit: contain; background: #1a1a2e;" onerror="this.style.display='none'">
+                        <div style="flex: 1;">
+                            <input type="file" id="logoUpload" accept="image/*" style="display: none;">
+                            <button type="button" onclick="document.getElementById('logoUpload').click()" class="action-btn" style="background: #9C27B0; width: 100%;"><i class="fas fa-upload"></i> رفع لوقو القناة</button>
+                        </div>
+                    </div>
                     <div style="display: flex; gap: 10px; margin-top: 10px;">
                         <select id="settingWatermarkPosition" style="flex: 1; padding: 10px; border-radius: 8px; border: 2px solid #2d2d44; background: #16213e; color: #fff; font-family: 'Cairo', sans-serif;">
                             <option value="bottom-right">أسفل يمين</option>
@@ -340,7 +346,7 @@
                             <option value="large">كبير</option>
                         </select>
                     </div>
-                    <p class="settings-hint">سيتم إضافة العلامة المائية تلقائياً عند إضافة إطار للصورة.</p>
+                    <p class="settings-hint">سيتم إضافة اللوقو تلقائياً عند إضافة إطار للصورة. يفضل استخدام صورة PNG بخلفية شفافة.</p>
                 </div>
                 
                 <hr>
@@ -423,7 +429,6 @@
             cook: '',
             appKey: '',
             appSecret: '',
-            watermarkText: '',
             watermarkPosition: 'bottom-right',
             watermarkSize: 'medium'
         };
@@ -447,7 +452,6 @@
             document.getElementById('settingCook').value = settings.cook || '';
             document.getElementById('settingAppKey').value = settings.appKey || '';
             document.getElementById('settingAppSecret').value = settings.appSecret || '';
-            document.getElementById('settingWatermarkText').value = settings.watermarkText || '';
             document.getElementById('settingWatermarkPosition').value = settings.watermarkPosition || 'bottom-right';
             document.getElementById('settingWatermarkSize').value = settings.watermarkSize || 'medium';
             document.getElementById('settingsModal').classList.add('show');
@@ -470,7 +474,6 @@
             settings.cook = document.getElementById('settingCook').value;
             settings.appKey = document.getElementById('settingAppKey').value;
             settings.appSecret = document.getElementById('settingAppSecret').value;
-            settings.watermarkText = document.getElementById('settingWatermarkText').value;
             settings.watermarkPosition = document.getElementById('settingWatermarkPosition').value;
             settings.watermarkSize = document.getElementById('settingWatermarkSize').value;
             
@@ -657,6 +660,58 @@
             finally { publishBtn.disabled = false; }
         };
         
+        // Frame upload handler
+        document.getElementById('frameUpload').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const formData = new FormData();
+            formData.append('frame', file);
+            
+            try {
+                const res = await fetch('/api/upload-frame', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await res.json();
+                if (result.success) {
+                    document.getElementById('currentFramePreview').src = '/custom_frame.jpg?' + Date.now();
+                    showToast('تم تحميل الإطار بنجاح');
+                } else {
+                    showToast('فشل تحميل الإطار');
+                }
+            } catch (err) {
+                showToast('خطأ في تحميل الإطار');
+            }
+        });
+
+        // Logo upload handler
+        document.getElementById('logoUpload').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const formData = new FormData();
+            formData.append('logo', file);
+            
+            try {
+                const res = await fetch('/api/upload-logo', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await res.json();
+                if (result.success) {
+                    const preview = document.getElementById('currentLogoPreview');
+                    preview.src = '/watermark_logo.png?' + Date.now();
+                    preview.style.display = 'block';
+                    showToast('تم تحميل اللوقو بنجاح');
+                } else {
+                    showToast('فشل تحميل اللوقو');
+                }
+            } catch (err) {
+                showToast('خطأ في تحميل اللوقو');
+            }
+        });
+
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
     </script>
 </body>

@@ -56,6 +56,15 @@ app.post('/api/upload-frame', upload.single('frame'), (req, res) => {
   });
 });
 
+app.post('/api/upload-logo', upload.single('logo'), (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded' });
+  const targetPath = path.join(__dirname, 'public', 'watermark_logo.png');
+  fs.rename(req.file.path, targetPath, (err) => {
+    if (err) return res.status(500).json({ success: false, error: err.message });
+    res.json({ success: true });
+  });
+});
+
 async function downloadImage(url) {
   return new Promise((resolve, reject) => {
     const protocol = url.startsWith('https') ? https : http;
@@ -105,36 +114,58 @@ app.post('/api/frame-image', async (req, res) => {
       blend: 'over'
     }];
     
-    // Add watermark if provided
-    if (watermark && watermark.text && watermark.text.trim()) {
-      const fontSize = watermark.size === 'small' ? 24 : watermark.size === 'large' ? 48 : 36;
-      const padding = 20;
-      
-      // Escape XML special characters
-      const escapedText = watermark.text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;');
-      
-      // Create SVG text for watermark with proper xmlns
-      const svgText = `<svg xmlns="http://www.w3.org/2000/svg" width="${frameWidth}" height="${frameHeight}">
-  <defs>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="2" dy="2" stdDeviation="2" flood-color="black" flood-opacity="0.5"/>
-    </filter>
-  </defs>
-  <text x="${getWatermarkX(watermark.position, frameWidth, padding)}" y="${getWatermarkY(watermark.position, frameHeight, padding, fontSize)}" text-anchor="${getTextAnchor(watermark.position)}" fill="rgba(255,255,255,0.8)" font-size="${fontSize}" font-family="Arial, sans-serif" font-weight="bold" filter="url(#shadow)">${escapedText}</text>
-</svg>`;
-      
-      const watermarkBuffer = Buffer.from(svgText);
-      composites.push({
-        input: watermarkBuffer,
-        left: 0,
-        top: 0,
-        blend: 'over'
-      });
+    // Add logo watermark if exists
+    const logoPath = path.join(__dirname, 'public', 'watermark_logo.png');
+    if (fs.existsSync(logoPath) && watermark) {
+      try {
+        const logoSize = watermark.size === 'small' ? 80 : watermark.size === 'large' ? 160 : 120;
+        const padding = 20;
+        
+        // Resize logo
+        const resizedLogo = await sharp(logoPath)
+          .resize(logoSize, logoSize, { fit: 'inside' })
+          .png()
+          .toBuffer();
+        
+        const logoMeta = await sharp(resizedLogo).metadata();
+        const logoW = logoMeta.width;
+        const logoH = logoMeta.height;
+        
+        // Calculate position
+        let left, top;
+        switch(watermark.position) {
+          case 'top-left':
+            left = padding;
+            top = padding;
+            break;
+          case 'top-right':
+            left = frameWidth - logoW - padding;
+            top = padding;
+            break;
+          case 'bottom-left':
+            left = padding;
+            top = frameHeight - logoH - padding;
+            break;
+          case 'center':
+            left = Math.round((frameWidth - logoW) / 2);
+            top = Math.round((frameHeight - logoH) / 2);
+            break;
+          case 'bottom-right':
+          default:
+            left = frameWidth - logoW - padding;
+            top = frameHeight - logoH - padding;
+            break;
+        }
+        
+        composites.push({
+          input: resizedLogo,
+          left: left,
+          top: top,
+          blend: 'over'
+        });
+      } catch (logoErr) {
+        console.error('Logo watermark error:', logoErr);
+      }
     }
     
     const framedImage = await sharp(useFramePath)
@@ -153,51 +184,6 @@ app.post('/api/frame-image', async (req, res) => {
   }
 });
 
-// Helper functions for watermark positioning
-function getWatermarkX(position, width, padding) {
-  switch(position) {
-    case 'top-left':
-    case 'bottom-left':
-      return padding;
-    case 'top-right':
-    case 'bottom-right':
-      return width - padding;
-    case 'center':
-      return width / 2;
-    default:
-      return width - padding;
-  }
-}
-
-function getWatermarkY(position, height, padding, fontSize) {
-  switch(position) {
-    case 'top-left':
-    case 'top-right':
-      return padding + fontSize;
-    case 'bottom-left':
-    case 'bottom-right':
-      return height - padding;
-    case 'center':
-      return height / 2;
-    default:
-      return height - padding;
-  }
-}
-
-function getTextAnchor(position) {
-  switch(position) {
-    case 'top-left':
-    case 'bottom-left':
-      return 'start';
-    case 'top-right':
-    case 'bottom-right':
-      return 'end';
-    case 'center':
-      return 'middle';
-    default:
-      return 'end';
-  }
-}
 
 app.post('/api/affiliate', async (req, res) => {
   try {
