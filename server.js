@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const { portaffFunction } = require('./afflink');
 const { searchHotProducts, searchProducts } = require('./aliexpress-api');
 const { Telegraf } = require('telegraf');
@@ -14,6 +15,72 @@ const app = express();
 const postScheduler = new PostScheduler();
 postScheduler.start();
 
+// Gemini API Key Management System
+const GEMINI_KEYS_FILE = path.join(__dirname, 'gemini_keys.json');
+
+// Load saved keys from file
+function loadGeminiKeys() {
+  try {
+    if (fs.existsSync(GEMINI_KEYS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(GEMINI_KEYS_FILE, 'utf8'));
+      return data;
+    }
+  } catch (e) {
+    console.log('Error loading Gemini keys:', e.message);
+  }
+  return { keys: [], currentIndex: 0 };
+}
+
+// Save keys to file
+function saveGeminiKeysToFile(data) {
+  try {
+    fs.writeFileSync(GEMINI_KEYS_FILE, JSON.stringify(data, null, 2));
+    return true;
+  } catch (e) {
+    console.log('Error saving Gemini keys:', e.message);
+    return false;
+  }
+}
+
+// Get current active API key
+function getCurrentGeminiKey() {
+  const data = loadGeminiKeys();
+  const envKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  
+  if (data.keys.length > 0) {
+    const index = data.currentIndex % data.keys.length;
+    return data.keys[index];
+  }
+  return envKey || null;
+}
+
+// Rotate to next key
+function rotateGeminiKey() {
+  const data = loadGeminiKeys();
+  if (data.keys.length > 1) {
+    data.currentIndex = (data.currentIndex + 1) % data.keys.length;
+    saveGeminiKeysToFile(data);
+    console.log(`🔄 Rotated to Gemini key ${data.currentIndex + 1}/${data.keys.length}`);
+    return true;
+  }
+  return false;
+}
+
+// Get a Gemini model instance with current key
+function getGeminiModel() {
+  const apiKey = getCurrentGeminiKey();
+  if (!apiKey) return null;
+  
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    return genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+  } catch (e) {
+    console.log('Error creating Gemini model:', e.message);
+    return null;
+  }
+}
+
+// Initial setup - keep for backward compatibility
 const geminiApiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
 const model = genAI ? genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" }) : null;
@@ -43,7 +110,6 @@ app.get('/ping', (req, res) => {
   res.send('pong');
 });
 
-const fs = require('fs');
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 
@@ -64,6 +130,77 @@ app.post('/api/upload-logo', upload.single('logo'), (req, res) => {
     res.json({ success: true });
   });
 });
+
+// Gemini Keys Management API
+app.post('/api/gemini-keys', (req, res) => {
+  try {
+    const { keys } = req.body;
+    if (!keys) return res.status(400).json({ success: false, error: 'Keys required' });
+    
+    const keyArray = keys.split(',').map(k => k.trim()).filter(k => k.length > 10);
+    if (keyArray.length === 0) {
+      return res.status(400).json({ success: false, error: 'No valid keys found' });
+    }
+    
+    const data = { keys: keyArray, currentIndex: 0 };
+    if (saveGeminiKeysToFile(data)) {
+      console.log(`✅ Saved ${keyArray.length} Gemini API keys`);
+      res.json({ success: true, count: keyArray.length });
+    } else {
+      res.status(500).json({ success: false, error: 'Failed to save keys' });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/gemini-status', (req, res) => {
+  try {
+    const data = loadGeminiKeys();
+    const envKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    const totalKeys = data.keys.length + (envKey ? 1 : 0);
+    
+    res.json({
+      success: true,
+      count: data.keys.length,
+      currentIndex: data.currentIndex,
+      hasEnvKey: !!envKey,
+      totalAvailable: totalKeys
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Helper function to run Gemini with auto-rotation on quota error
+async function runGeminiWithRotation(prompt, maxRetries = 3) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const currentModel = getGeminiModel();
+    if (!currentModel) {
+      throw new Error('No Gemini API key available');
+    }
+    
+    try {
+      const result = await currentModel.generateContent(prompt);
+      const response = await result.response;
+      return response.text().trim();
+    } catch (error) {
+      const errorMsg = error.message || '';
+      // Check if it's a quota error
+      if (errorMsg.includes('quota') || errorMsg.includes('429') || errorMsg.includes('RESOURCE_EXHAUSTED')) {
+        console.log(`⚠️ Gemini quota exceeded on attempt ${attempt + 1}, rotating key...`);
+        if (rotateGeminiKey()) {
+          continue; // Try with next key
+        }
+      }
+      // If last attempt or non-quota error, throw
+      if (attempt === maxRetries - 1) {
+        throw error;
+      }
+    }
+  }
+  throw new Error('All Gemini API keys exhausted');
+}
 
 // Add logo watermark only (without frame)
 app.post('/api/add-watermark', async (req, res) => {
@@ -485,18 +622,11 @@ app.post('/api/ai-refine-title', async (req, res) => {
     const { title, isHook } = req.body;
     if (!title) return res.status(400).json({ success: false, error: 'العنوان مطلوب' });
 
-    // Re-check for API key in case it was just added to environment
-    const currentApiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
-    
-    // Local model instance to ensure we use the latest env vars
-    let localModel = model;
-    if (!localModel && currentApiKey) {
-      const localGenAI = new GoogleGenerativeAI(currentApiKey);
-      localModel = localGenAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-    }
+    // Check if any AI key is available
+    const hasAI = getGeminiModel() !== null;
 
     // If no AI model available, use simple cleanup
-    if (!localModel) {
+    if (!hasAI) {
       const cleanedTitle = cleanupTitle(title);
       return res.json({ success: true, refinedTitle: cleanedTitle, method: 'fallback' });
     }
@@ -529,11 +659,9 @@ CRITICAL RULES:
 Input title: ${title}`;
       }
       
-      const result = await localModel.generateContent(prompt);
-      const response = await result.response;
-      const refinedTitle = response.text().trim().replace(/[*#]/g, '');
-
-      res.json({ success: true, refinedTitle: refinedTitle || title, method: 'ai' });
+      // Use rotation-enabled function
+      const refinedTitle = await runGeminiWithRotation(prompt);
+      res.json({ success: true, refinedTitle: refinedTitle.replace(/[*#]/g, '') || title, method: 'ai' });
     } catch (aiError) {
       // If AI fails (quota exceeded, etc.), use fallback
       console.log('AI failed, using fallback:', aiError.message);
@@ -557,14 +685,6 @@ app.post('/api/generate-algerian-hook', async (req, res) => {
   try {
     const { title, price } = req.body;
     if (!title) return res.status(400).json({ success: false, error: 'العنوان مطلوب' });
-
-    const currentApiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
-    
-    let localModel = model;
-    if (!localModel && currentApiKey) {
-      const localGenAI = new GoogleGenerativeAI(currentApiKey);
-      localModel = localGenAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-    }
 
     // Fallback hooks if AI is not available - extensive list for variety
     const fallbackHooks = [
@@ -595,7 +715,10 @@ app.post('/api/generate-algerian-hook', async (req, res) => {
       "راني نوصيكم بهاد المنتج، يستاهل!"
     ];
 
-    if (!localModel) {
+    // Check if any AI key is available
+    const hasAI = getGeminiModel() !== null;
+
+    if (!hasAI) {
       const randomHook = fallbackHooks[Math.floor(Math.random() * fallbackHooks.length)];
       return res.json({ success: true, hook: randomHook, method: 'fallback' });
     }
@@ -616,10 +739,8 @@ RULES:
 Product: ${title}
 ${price ? `Price: ${price}` : ''}`;
       
-      const result = await localModel.generateContent(prompt);
-      const response = await result.response;
-      const hook = response.text().trim();
-
+      // Use rotation-enabled function
+      const hook = await runGeminiWithRotation(prompt);
       res.json({ success: true, hook: hook, method: 'ai' });
     } catch (aiError) {
       console.log('AI hook failed, using fallback:', aiError.message);
@@ -676,45 +797,37 @@ app.post('/api/discover-products', async (req, res) => {
 
     let products = result.products || [];
 
-    if (useAI && products.length > 0) {
-      const currentApiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
-      
-      if (currentApiKey) {
-        try {
-          const localGenAI = new GoogleGenerativeAI(currentApiKey);
-          const localModel = localGenAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-          
-          const productTitles = products.slice(0, 5).map((p, i) => `${i+1}. ${p.title} - ${p.price} ${p.currency}`).join('\n');
-          
-          const prompt = `أنت خبير تسويق متخصص في السوق الجزائري.
+    if (useAI && products.length > 0 && getGeminiModel()) {
+      try {
+        const productTitles = products.slice(0, 5).map((p, i) => `${i+1}. ${p.title} - ${p.price} ${p.currency}`).join('\n');
+        
+        const prompt = `أنت خبير تسويق متخصص في السوق الجزائري.
 من بين هذه المنتجات، رتبها حسب جاذبيتها للمستهلك الجزائري (من الأكثر جاذبية للأقل):
 
 ${productTitles}
 
 أعطني فقط أرقام المنتجات مرتبة (مثلاً: 2,1,4,3,5) بدون أي شرح.`;
-          
-          const aiResult = await localModel.generateContent(prompt);
-          const ranking = aiResult.response.text().trim();
-          const order = ranking.match(/\d+/g);
-          
-          if (order && order.length > 0) {
-            const reorderedProducts = [];
-            order.forEach(idx => {
-              const index = parseInt(idx) - 1;
-              if (index >= 0 && index < products.length && products[index]) {
-                reorderedProducts.push({ ...products[index], aiRanked: true });
-              }
-            });
-            products.forEach(p => {
-              if (!reorderedProducts.find(rp => rp.id === p.id)) {
-                reorderedProducts.push(p);
-              }
-            });
-            products = reorderedProducts;
-          }
-        } catch (aiError) {
-          console.log('AI ranking failed:', aiError.message);
+        
+        const ranking = await runGeminiWithRotation(prompt);
+        const order = ranking.match(/\d+/g);
+        
+        if (order && order.length > 0) {
+          const reorderedProducts = [];
+          order.forEach(idx => {
+            const index = parseInt(idx) - 1;
+            if (index >= 0 && index < products.length && products[index]) {
+              reorderedProducts.push({ ...products[index], aiRanked: true });
+            }
+          });
+          products.forEach(p => {
+            if (!reorderedProducts.find(rp => rp.id === p.id)) {
+              reorderedProducts.push(p);
+            }
+          });
+          products = reorderedProducts;
         }
+      } catch (aiError) {
+        console.log('AI ranking failed:', aiError.message);
       }
     }
 
@@ -733,18 +846,16 @@ app.post('/api/ai-suggest-keywords', async (req, res) => {
   try {
     const { category, season } = req.body;
     
-    const currentApiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    const defaultKeywords = {
+      'electronics': ['bluetooth earbuds', 'fast charger', 'smartwatch', 'power bank'],
+      'fashion': ['summer dress', 'sneakers', 'handbag', 'sunglasses'],
+      'home': ['kitchen gadgets', 'home decor', 'organizer', 'LED lights'],
+      'beauty': ['makeup set', 'skincare', 'perfume', 'hair tools'],
+      'kids': ['educational toys', 'kids clothes', 'electronic games'],
+      'sports': ['fitness equipment', 'sportswear', 'camping gear']
+    };
     
-    if (!currentApiKey) {
-      const defaultKeywords = {
-        'electronics': ['سماعات بلوتوث', 'شاحن سريع', 'ساعة ذكية', 'باور بانك'],
-        'fashion': ['فساتين صيفية', 'أحذية رياضية', 'حقائب يد', 'نظارات شمسية'],
-        'home': ['أدوات مطبخ', 'ديكور منزلي', 'منظمات', 'إضاءة LED'],
-        'beauty': ['مكياج', 'عناية بالبشرة', 'عطور', 'أدوات شعر'],
-        'kids': ['ألعاب تعليمية', 'ملابس أطفال', 'ألعاب إلكترونية'],
-        'sports': ['أجهزة رياضية', 'ملابس رياضية', 'معدات تخييم']
-      };
-      
+    if (!getGeminiModel()) {
       return res.json({ 
         success: true, 
         keywords: defaultKeywords[category] || ['trending', 'best seller', 'hot deals'],
@@ -753,9 +864,6 @@ app.post('/api/ai-suggest-keywords', async (req, res) => {
     }
 
     try {
-      const localGenAI = new GoogleGenerativeAI(currentApiKey);
-      const localModel = localGenAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-      
       const categoryName = algerianCategories[category]?.nameAr || category || 'منتجات عامة';
       const seasonText = season || 'الموسم الحالي';
       
@@ -764,21 +872,12 @@ app.post('/api/ai-suggest-keywords', async (req, res) => {
 
 أعطني الكلمات فقط مفصولة بفاصلة، بدون أرقام أو شرح.`;
       
-      const result = await localModel.generateContent(prompt);
-      const keywordsText = result.response.text().trim();
+      const keywordsText = await runGeminiWithRotation(prompt);
       const keywords = keywordsText.split(',').map(k => k.trim()).filter(k => k.length > 0);
       
       res.json({ success: true, keywords, method: 'ai' });
     } catch (aiError) {
       console.log('AI suggest keywords failed, using fallback:', aiError.message);
-      const defaultKeywords = {
-        'electronics': ['bluetooth earbuds', 'fast charger', 'smartwatch', 'power bank'],
-        'fashion': ['summer dress', 'sneakers', 'handbag', 'sunglasses'],
-        'home': ['kitchen gadgets', 'home decor', 'organizer', 'LED lights'],
-        'beauty': ['makeup set', 'skincare', 'perfume', 'hair tools'],
-        'kids': ['educational toys', 'kids clothes', 'electronic games'],
-        'sports': ['fitness equipment', 'sportswear', 'camping gear']
-      };
       res.json({ 
         success: true, 
         keywords: defaultKeywords[category] || ['trending', 'best seller', 'hot deals'],
@@ -796,24 +895,26 @@ app.post('/api/analyze-product', async (req, res) => {
   try {
     const { title, price, category } = req.body;
     
-    const currentApiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    const fallbackHooks = [
+      'يا خاوتي شوفو هاد لافير الخطيرة!',
+      'سلعة هبال وسومة ما تتفوتش!',
+      'عرض خاص لخاوتنا، ما تفوتوهش!',
+      'جبتلكم عرض هايل اليوم!'
+    ];
     
-    if (!currentApiKey) {
+    if (!getGeminiModel()) {
       return res.json({ 
         success: true, 
         analysis: {
           score: 7,
           pros: ['سعر مناسب', 'منتج مطلوب'],
-          hook: 'يا خاوتي شوفو هاد لافير الخطيرة!'
+          hook: fallbackHooks[Math.floor(Math.random() * fallbackHooks.length)]
         },
         method: 'fallback'
       });
     }
 
     try {
-      const localGenAI = new GoogleGenerativeAI(currentApiKey);
-      const localModel = localGenAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-      
       const prompt = `أنت خبير تسويق جزائري. حلل هذا المنتج للسوق الجزائري:
 
 المنتج: ${title}
@@ -827,8 +928,7 @@ app.post('/api/analyze-product', async (req, res) => {
 أجب بصيغة JSON فقط:
 {"score": 8, "pros": ["ميزة 1", "ميزة 2"], "hook": "النص"}`;
       
-      const result = await localModel.generateContent(prompt);
-      const responseText = result.response.text().trim();
+      const responseText = await runGeminiWithRotation(prompt);
       
       let analysis;
       try {
@@ -849,12 +949,6 @@ app.post('/api/analyze-product', async (req, res) => {
       res.json({ success: true, analysis, method: 'ai' });
     } catch (aiError) {
       console.log('AI analyze failed, using fallback:', aiError.message);
-      const fallbackHooks = [
-        'يا خاوتي شوفو هاد لافير الخطيرة!',
-        'سلعة هبال وسومة ما تتفوتش!',
-        'عرض خاص لخاوتنا، ما تفوتوهش!',
-        'جبتلكم عرض هايل اليوم!'
-      ];
       res.json({ 
         success: true, 
         analysis: {

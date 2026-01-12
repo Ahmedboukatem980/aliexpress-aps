@@ -41,6 +41,13 @@ npm start
   - AI-powered keyword suggestions for Algerian market
   - Product analysis with AI scoring and hooks in Algerian dialect
   - Fallback mode works without Gemini API key
+- **Gemini API Key Rotation** - Automatic switching between multiple API keys
+  - Add multiple keys in Settings (comma-separated)
+  - Auto-rotates to next key when quota is exceeded
+  - Status display shows current key and total available
+  - Keys stored securely in `gemini_keys.json` (gitignored)
+- **AI Hook Refinement** - Improve user-written Algerian hooks with AI
+  - Two buttons: "توليد (AI)" for generating new hooks, "تحسين (AI)" for refining existing ones
 
 ## Environment Variables (Optional)
 - `TELEGRAM_BOT_TOKEN` - Telegram bot token

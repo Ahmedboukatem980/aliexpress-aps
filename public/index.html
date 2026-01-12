@@ -381,6 +381,20 @@
                     <label>🔒 App Secret:</label>
                     <input type="password" id="settingAppSecret">
                 </div>
+                
+                <hr>
+                <h3 style="color: #9C27B0; margin-bottom: 15px; font-size: 16px;">🤖 مفاتيح Gemini AI</h3>
+                
+                <div class="form-group">
+                    <label>🔑 مفاتيح Gemini API (افصل بين المفاتيح بفاصلة):</label>
+                    <textarea id="settingGeminiKeys" rows="3" placeholder="key1,key2,key3..." style="width: 100%; padding: 12px; border-radius: 8px; border: 2px solid #2d2d44; background: #16213e; color: #fff; font-family: monospace; font-size: 12px; resize: vertical;"></textarea>
+                    <p class="settings-hint">أضف عدة مفاتيح للتبديل التلقائي عند نفاد الحصة.</p>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button type="button" id="saveGeminiKeysBtn" onclick="saveGeminiKeys()" style="flex: 1; padding: 10px; background: linear-gradient(135deg, #9C27B0, #7B1FA2); border: none; border-radius: 8px; color: #fff; font-family: 'Cairo', sans-serif; cursor: pointer;"><i class="fas fa-key"></i> حفظ المفاتيح</button>
+                        <button type="button" id="checkGeminiStatusBtn" onclick="checkGeminiStatus()" style="flex: 1; padding: 10px; background: linear-gradient(135deg, #4CAF50, #388E3C); border: none; border-radius: 8px; color: #fff; font-family: 'Cairo', sans-serif; cursor: pointer;"><i class="fas fa-sync"></i> حالة المفاتيح</button>
+                    </div>
+                    <p id="geminiStatus" style="font-size: 12px; color: #4CAF50; margin-top: 10px;"></p>
+                </div>
             </div>
             
             <button class="save-btn" onclick="saveSettings()"><i class="fas fa-save"></i> حفظ جميع التغييرات</button>
@@ -454,7 +468,51 @@
             document.getElementById('settingAppSecret').value = settings.appSecret || '';
             document.getElementById('settingWatermarkPosition').value = settings.watermarkPosition || 'bottom-right';
             document.getElementById('settingWatermarkSize').value = settings.watermarkSize || 'medium';
+            document.getElementById('settingGeminiKeys').value = '';
+            checkGeminiStatus();
             document.getElementById('settingsModal').classList.add('show');
+        }
+        
+        async function saveGeminiKeys() {
+            const keys = document.getElementById('settingGeminiKeys').value.trim();
+            if (!keys) {
+                showToast('الرجاء إدخال مفتاح واحد على الأقل', 'error');
+                return;
+            }
+            try {
+                const res = await fetch('/api/gemini-keys', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keys: keys })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showToast(`تم حفظ ${result.count} مفتاح بنجاح ✅`);
+                    document.getElementById('settingGeminiKeys').value = '';
+                    checkGeminiStatus();
+                } else {
+                    showToast(result.error || 'فشل حفظ المفاتيح', 'error');
+                }
+            } catch (e) {
+                showToast('خطأ في الاتصال', 'error');
+            }
+        }
+        
+        async function checkGeminiStatus() {
+            try {
+                const res = await fetch('/api/gemini-status');
+                const result = await res.json();
+                const statusEl = document.getElementById('geminiStatus');
+                if (result.count > 0) {
+                    statusEl.innerHTML = `✅ ${result.count} مفتاح متاح | المفتاح الحالي: ${result.currentIndex + 1}`;
+                    statusEl.style.color = '#4CAF50';
+                } else {
+                    statusEl.innerHTML = '⚠️ لا توجد مفاتيح محفوظة';
+                    statusEl.style.color = '#FF9800';
+                }
+            } catch (e) {
+                console.log('Status check failed');
+            }
         }
 
         function closeSettings() { document.getElementById('settingsModal').classList.remove('show'); }
