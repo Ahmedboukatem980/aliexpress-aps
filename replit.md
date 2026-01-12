@@ -49,7 +49,14 @@ npm start
 - **AI Hook Refinement** - Improve user-written Algerian hooks with AI
   - Two buttons: "توليد (AI)" for generating new hooks, "تحسين (AI)" for refining existing ones
 
+## Product Metadata Extraction
+The app uses multiple fallback methods to extract product title and image:
+1. **AliExpress API** - First attempt using internal API
+2. **Web Scraping** - Multiple AliExpress domains with JSON parsing
+3. **linkpreview.xyz API** - External fallback when other methods fail
+
 ## Environment Variables (Optional)
 - `TELEGRAM_BOT_TOKEN` - Telegram bot token
 - `TELEGRAM_CHANNEL_ID` - Default channel ID
 - `cook` - AliExpress cookie for affiliate generation
+- `GEMINI_API_KEY` - Single or multiple keys (comma-separated) for AI features
