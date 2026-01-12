@@ -3,3 +3,4 @@ uploads/
 .env
 *.log
 gemini_keys.json
+saved_posts.json

@@ -48,6 +48,11 @@ npm start
   - Keys stored securely in `gemini_keys.json` (gitignored)
 - **AI Hook Refinement** - Improve user-written Algerian hooks with AI
   - Two buttons: "توليد (AI)" for generating new hooks, "تحسين (AI)" for refining existing ones
+- **Saved Posts History** - Auto-save published posts for easy republishing
+  - View all saved posts with thumbnails
+  - One-click republish to Telegram
+  - Edit saved posts before republishing
+  - Posts stored in `saved_posts.json` (gitignored)
 
 ## Product Metadata Extraction
 The app uses multiple fallback methods to extract product title and image:
