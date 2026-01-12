@@ -152,16 +152,9 @@
             <div id="scheduledPostsList"></div>
         </div>
 
-        <div id="savedPostsSection" style="margin-top: 30px;">
-            <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
-                <span><i class="fas fa-history"></i> المنشورات المحفوظة</span>
-                <button id="clearSavedPostsBtn" style="background: #ff4444; border: none; border-radius: 8px; color: #fff; padding: 8px 15px; font-family: 'Cairo'; font-size: 12px; cursor: pointer; display: none;">
-                    <i class="fas fa-trash"></i> مسح الكل
-                </button>
-            </div>
-            <div id="savedPostsList" style="display: flex; flex-direction: column; gap: 15px;"></div>
-            <p id="noSavedPosts" style="text-align: center; color: #666; padding: 20px;">لا توجد منشورات محفوظة</p>
-        </div>
+        <a href="/saved-posts.html" style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 30px; padding: 18px; background: linear-gradient(135deg, #9C27B0, #7B1FA2); border-radius: 12px; color: #fff; text-decoration: none; font-weight: 700; font-size: 16px;">
+            <i class="fas fa-history"></i> المنشورات المحفوظة
+        </a>
     </div>
 
     <div class="toast" id="toast"></div>
@@ -654,160 +647,6 @@
 
         updateChannelBadges();
         loadScheduledPosts();
-        loadSavedPosts();
-
-        // Saved Posts Functions
-        async function loadSavedPosts() {
-            try {
-                const res = await fetch('/api/saved-posts');
-                const data = await res.json();
-                const savedPostsList = document.getElementById('savedPostsList');
-                const noSavedPosts = document.getElementById('noSavedPosts');
-                const clearBtn = document.getElementById('clearSavedPostsBtn');
-                
-                if (data.success && data.posts.length > 0) {
-                    noSavedPosts.style.display = 'none';
-                    clearBtn.style.display = 'block';
-                    savedPostsList.innerHTML = data.posts.map(p => `
-                        <div style="background: #16213e; border-radius: 12px; padding: 15px; border: 1px solid rgba(255,255,255,0.1);">
-                            <div style="display: flex; gap: 12px; align-items: flex-start;">
-                                ${p.image ? `<img src="${p.image.startsWith('data:') ? p.image : p.image}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px;">` : '<div style="width: 60px; height: 60px; background: #2d2d44; border-radius: 8px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-image" style="color: #555;"></i></div>'}
-                                <div style="flex: 1; min-width: 0;">
-                                    <div style="font-weight: 600; font-size: 14px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.title || 'بدون عنوان'}</div>
-                                    <div style="font-size: 12px; color: #4CAF50; margin-bottom: 5px;">${p.price || ''}</div>
-                                    <div style="font-size: 11px; color: #888;">${new Date(p.createdAt).toLocaleDateString('ar-EG')}</div>
-                                </div>
-                            </div>
-                            <div style="display: flex; gap: 10px; margin-top: 12px;">
-                                <button onclick="republishPost(event, '${p.id}')" style="flex: 1; background: linear-gradient(135deg, #0088cc, #0077b5); border: none; border-radius: 8px; color: #fff; padding: 10px; font-family: 'Cairo'; font-size: 13px; font-weight: 600; cursor: pointer;">
-                                    <i class="fab fa-telegram"></i> إعادة النشر
-                                </button>
-                                <button onclick="loadPostToEdit('${p.id}')" style="flex: 1; background: #FF9800; border: none; border-radius: 8px; color: #fff; padding: 10px; font-family: 'Cairo'; font-size: 13px; font-weight: 600; cursor: pointer;">
-                                    <i class="fas fa-edit"></i> تعديل
-                                </button>
-                                <button onclick="deleteSavedPost('${p.id}')" style="background: #ff4444; border: none; border-radius: 8px; color: #fff; padding: 10px 15px; cursor: pointer;">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `).join('');
-                } else {
-                    noSavedPosts.style.display = 'block';
-                    clearBtn.style.display = 'none';
-                    savedPostsList.innerHTML = '';
-                }
-            } catch (e) {
-                console.error('Error loading saved posts:', e);
-            }
-        }
-
-        let savedPostsCache = [];
-        async function fetchSavedPostsCache() {
-            try {
-                const res = await fetch('/api/saved-posts');
-                const data = await res.json();
-                if (data.success) savedPostsCache = data.posts;
-            } catch (e) {}
-        }
-        fetchSavedPostsCache();
-
-        window.republishPost = async (e, id) => {
-            const post = savedPostsCache.find(p => p.id === id);
-            if (!post) {
-                await fetchSavedPostsCache();
-                const post2 = savedPostsCache.find(p => p.id === id);
-                if (!post2) { showToast('لم يتم العثور على المنشور', 'error'); return; }
-            }
-            const p = savedPostsCache.find(p => p.id === id);
-            
-            const btn = e.target.closest('button');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-            
-            try {
-                const credentials = {
-                    telegramToken: settings.telegramToken || '',
-                    channelId: settings.channelId || '',
-                    channelId2: settings.channelId2 || '@AliOffers_Dz',
-                    channelChoice: channelSelect.value
-                };
-
-                const res = await fetch('/api/publish-telegram', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        title: p.title,
-                        price: p.price,
-                        link: p.link,
-                        coupon: p.coupon || null,
-                        image: p.image,
-                        settings: settings,
-                        credentials: credentials,
-                        customMessage: p.message
-                    })
-                });
-
-                const result = await res.json();
-                if (result.success) {
-                    showToast('تم إعادة النشر بنجاح! ✅', 'success');
-                } else {
-                    showToast(result.error || 'فشل النشر', 'error');
-                }
-            } catch (e) {
-                showToast('خطأ في الاتصال', 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fab fa-telegram"></i> إعادة النشر';
-            }
-        };
-
-        window.loadPostToEdit = async (id) => {
-            const post = savedPostsCache.find(p => p.id === id);
-            if (!post) { showToast('لم يتم العثور على المنشور', 'error'); return; }
-            
-            productTitle.value = post.title || '';
-            salePrice.value = post.price || '';
-            purchaseLink.value = post.link || '';
-            couponCode.value = post.coupon || '';
-            algerianHook.value = post.hook || '';
-            if (post.image) {
-                productImage.value = post.image.startsWith('data:') ? '' : post.image;
-                imagePreview.src = post.image;
-                imagePreview.style.display = 'block';
-                if (post.image.startsWith('data:')) {
-                    framedImageData.value = post.image;
-                    isFramed = true;
-                }
-            }
-            messagePreview.value = post.message || '';
-            
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            showToast('تم تحميل المنشور للتعديل', 'success');
-        };
-
-        window.deleteSavedPost = async (id) => {
-            if (!confirm('هل تريد حذف هذا المنشور؟')) return;
-            try {
-                await fetch(`/api/saved-posts/${id}`, { method: 'DELETE' });
-                showToast('تم حذف المنشور', 'success');
-                loadSavedPosts();
-                fetchSavedPostsCache();
-            } catch (e) {
-                showToast('خطأ في الحذف', 'error');
-            }
-        };
-
-        document.getElementById('clearSavedPostsBtn').onclick = async () => {
-            if (!confirm('هل تريد حذف جميع المنشورات المحفوظة؟')) return;
-            try {
-                await fetch('/api/saved-posts', { method: 'DELETE' });
-                showToast('تم حذف جميع المنشورات', 'success');
-                loadSavedPosts();
-                savedPostsCache = [];
-            } catch (e) {
-                showToast('خطأ في الحذف', 'error');
-            }
-        };
 
         async function saveCurrentPost() {
             try {
@@ -824,8 +663,6 @@
                         hook: algerianHook.value
                     })
                 });
-                loadSavedPosts();
-                fetchSavedPostsCache();
             } catch (e) {
                 console.error('Error saving post:', e);
             }
