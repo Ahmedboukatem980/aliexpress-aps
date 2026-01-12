@@ -42,27 +42,56 @@ function saveGeminiKeysToFile(data) {
   }
 }
 
+// Parse environment variable keys (comma-separated)
+function getEnvKeys() {
+  const envKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY || '';
+  if (envKey.includes(',')) {
+    return envKey.split(',').map(k => k.trim()).filter(k => k.length > 10);
+  }
+  return envKey ? [envKey] : [];
+}
+
 // Get current active API key
 function getCurrentGeminiKey() {
   const data = loadGeminiKeys();
-  const envKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  const envKeys = getEnvKeys();
   
+  // Priority: saved keys > env keys
   if (data.keys.length > 0) {
     const index = data.currentIndex % data.keys.length;
     return data.keys[index];
   }
-  return envKey || null;
+  
+  // Support multiple keys from environment variable
+  if (envKeys.length > 0) {
+    const envIndex = data.envKeyIndex || 0;
+    return envKeys[envIndex % envKeys.length];
+  }
+  
+  return null;
 }
 
 // Rotate to next key
 function rotateGeminiKey() {
   const data = loadGeminiKeys();
+  const envKeys = getEnvKeys();
+  
+  // Rotate saved keys first
   if (data.keys.length > 1) {
     data.currentIndex = (data.currentIndex + 1) % data.keys.length;
     saveGeminiKeysToFile(data);
     console.log(`🔄 Rotated to Gemini key ${data.currentIndex + 1}/${data.keys.length}`);
     return true;
   }
+  
+  // Rotate env keys if multiple
+  if (envKeys.length > 1) {
+    data.envKeyIndex = ((data.envKeyIndex || 0) + 1) % envKeys.length;
+    saveGeminiKeysToFile(data);
+    console.log(`🔄 Rotated to ENV Gemini key ${data.envKeyIndex + 1}/${envKeys.length}`);
+    return true;
+  }
+  
   return false;
 }
 
