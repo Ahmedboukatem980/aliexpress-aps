@@ -502,7 +502,8 @@ app.post('/api/publish-telegram', async (req, res) => {
       hashtags: '#Aliexpress'
     };
     
-    let message = `${s.prefix} ${title}\n\n`;
+    let message = `&lt;blockquote&gt;${hook}&lt;/blockquote&gt;\n\n`;
+    message += `${s.prefix} ${title}\n\n`;
     message += `${s.salePrice} ${price}\n\n${s.linkText}\n${link}\n\n`;
     if (coupon) message += `${s.couponText} ${coupon}\n\n`;
     message += `${s.footer}\n🔗 ${s.botLink}\n\n${s.hashtags}`;
