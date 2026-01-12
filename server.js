@@ -482,7 +482,7 @@ function cleanupTitle(title) {
 
 app.post('/api/ai-refine-title', async (req, res) => {
   try {
-    const { title } = req.body;
+    const { title, isHook } = req.body;
     if (!title) return res.status(400).json({ success: false, error: 'العنوان مطلوب' });
 
     // Re-check for API key in case it was just added to environment
@@ -502,7 +502,13 @@ app.post('/api/ai-refine-title', async (req, res) => {
     }
 
     try {
-      const prompt = `You are a professional marketing expert specialized in AliExpress deals for the Algerian market.
+      let prompt;
+      if (isHook) {
+        prompt = `You are an Algerian marketing expert. Improve this product hook to be more engaging and natural in Algerian Darija (الدارجة الجزائرية). Keep it concise (max 10 words) and catchy for Telegram. Return ONLY the refined hook without emojis.
+        
+Current hook: ${title}`;
+      } else {
+        prompt = `You are a professional marketing expert specialized in AliExpress deals for the Algerian market.
 Your task is to refine the product title to be more attractive, professional, and engaging for Telegram channel users.
 
 CRITICAL RULES:
@@ -514,10 +520,11 @@ CRITICAL RULES:
 6. Only return the refined title text.
 
 Input title: ${title}`;
+      }
       
       const result = await localModel.generateContent(prompt);
       const response = await result.response;
-      const refinedTitle = response.text().trim();
+      const refinedTitle = response.text().trim().replace(/[*#]/g, '');
 
       res.json({ success: true, refinedTitle: refinedTitle || title, method: 'ai' });
     } catch (aiError) {
