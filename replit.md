@@ -52,8 +52,8 @@ npm start
 ## Product Metadata Extraction
 The app uses multiple fallback methods to extract product title and image:
 1. **AliExpress API** - First attempt using internal API
-2. **Web Scraping** - Multiple AliExpress domains with JSON parsing
-3. **linkpreview.xyz API** - External fallback when other methods fail
+2. **microlink.io API** - External API for reliable metadata extraction
+3. **Web Scraping** - Multiple AliExpress domains with JSON parsing
 
 ## Environment Variables (Optional)
 - `TELEGRAM_BOT_TOKEN` - Telegram bot token

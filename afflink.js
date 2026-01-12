@@ -161,7 +161,36 @@ async function fetchLinkPreview(productId) {
         console.log("API fetch failed, falling back to scraping:", apiErr.message);
     }
 
-    // Fallback to scraping - try multiple URL formats
+    // Second option: External API (microlink.io)
+    try {
+        console.log("Trying microlink.io API...");
+        const apiRes = await got('https://api.microlink.io', {
+            searchParams: {
+                url: `https://www.aliexpress.com/item/${productId}.html`
+            },
+            responseType: 'json',
+            timeout: { request: 20000 }
+        });
+        
+        const data = apiRes.body;
+        if (data.status === 'success' && data.data) {
+            const title = data.data.title || '';
+            const imageUrl = data.data.image?.url || null;
+            
+            if (title && title.length > 10 && !title.includes('AliExpress') && !title.includes('Smarter Shopping')) {
+                console.log("✅ Product fetched via microlink.io - Title:", title.substring(0, 50) + "...");
+                return {
+                    title: title,
+                    image_url: imageUrl,
+                    price: "راجع الرابط"
+                };
+            }
+        }
+    } catch (apiErr) {
+        console.log("microlink.io API failed:", apiErr.message);
+    }
+
+    // Third option: Fallback to scraping - try multiple URL formats
     const urlsToTry = [
         `https://www.aliexpress.com/item/${productId}.html`,
         `https://www.aliexpress.us/item/${productId}.html`,
@@ -233,42 +262,6 @@ async function fetchLinkPreview(productId) {
         } catch (err) {
             console.log("Scraping attempt failed for", productUrl, "-", err.message);
         }
-    }
-    
-    // Fallback to external API (linkpreview.xyz)
-    try {
-        console.log("Trying linkpreview.xyz API...");
-        const apiRes = await got('https://linkpreview.xyz/api/get-meta-tags', {
-            searchParams: {
-                url: `https://vi.aliexpress.com/item/${productId}.html`
-            },
-            responseType: 'json',
-            timeout: { request: 15000 }
-        });
-        
-        const data = apiRes.body;
-        if (data && (data.title || data.image)) {
-            // Clean title from AliExpress suffix
-            let cleanTitle = data.title || '';
-            cleanTitle = cleanTitle.replace(/ - AliExpress.*$/i, '').replace(/\|.*$/i, '').trim();
-            
-            // Validate image URL (must be from AliExpress CDN)
-            let imageUrl = data.image || null;
-            if (imageUrl && !imageUrl.includes('alicdn.com')) {
-                imageUrl = null;
-            }
-            
-            if (cleanTitle && cleanTitle.length > 5) {
-                console.log("✅ Product fetched via linkpreview.xyz - Title:", cleanTitle.substring(0, 50) + "...");
-                return {
-                    title: cleanTitle,
-                    image_url: imageUrl,
-                    price: "راجع الرابط"
-                };
-            }
-        }
-    } catch (apiErr) {
-        console.log("linkpreview.xyz API failed:", apiErr.message);
     }
     
     console.log("All methods failed, using fallback");
