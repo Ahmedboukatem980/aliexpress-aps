@@ -9,172 +9,207 @@
         :root {
             --primary: #ff4747;
             --secondary: #2c3e50;
-            --bg: #f4f7f6;
-            --white: #ffffff;
+            --bg: #0f0f1a;
+            --white: #16213e;
+            --text: #ffffff;
         }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Cairo', sans-serif;
             background-color: var(--bg);
             margin: 0;
             padding: 20px;
+            color: var(--text);
         }
         .container {
-            max-width: 600px;
+            max-width: 900px;
             margin: 0 auto;
             background: var(--white);
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            padding: 25px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.05);
         }
         h1 {
             text-align: center;
-            color: var(--secondary);
+            color: var(--primary);
             margin-bottom: 30px;
+            font-size: 24px;
         }
-        .search-box {
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.03);
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .stat-card h3 { margin: 0; font-size: 14px; color: #888; }
+        .stat-card p { margin: 10px 0 0; font-size: 20px; font-weight: bold; color: var(--primary); }
+        
+        .table-container {
+            overflow-x: auto;
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+            font-size: 14px;
+        }
+        th {
+            background: rgba(255,255,255,0.05);
+            padding: 12px;
+            text-align: right;
+            color: #888;
+            font-weight: 600;
+        }
+        td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .order-id { font-family: monospace; color: #FFD700; }
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-paid { background: rgba(76, 175, 80, 0.2); color: #4CAF50; }
+        .status-pending { background: rgba(255, 152, 0, 0.2); color: #FF9800; }
+        
+        .filters {
             display: flex;
             gap: 10px;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
         }
-        input {
-            flex: 1;
-            padding: 12px 15px;
-            border: 2px solid #ddd;
+        select, input {
+            background: #1a1a2e;
+            border: 1px solid #2d2d44;
+            color: white;
+            padding: 8px 12px;
             border-radius: 8px;
-            font-size: 16px;
-            outline: none;
-            transition: border-color 0.3s;
+            font-family: 'Cairo', sans-serif;
         }
-        input:focus {
-            border-color: var(--primary);
-        }
-        button {
-            padding: 12px 25px;
-            background-color: var(--primary);
+        .refresh-btn {
+            background: var(--primary);
             color: white;
             border: none;
+            padding: 8px 20px;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 16px;
             font-weight: bold;
-            transition: background 0.3s;
-        }
-        button:hover {
-            background-color: #e03e3e;
-        }
-        .result-container {
-            display: none;
-            margin-top: 30px;
-        }
-        .tracking-item {
-            position: relative;
-            padding-right: 30px;
-            padding-bottom: 20px;
-            border-right: 2px solid #eee;
-        }
-        .tracking-item::before {
-            content: '';
-            position: absolute;
-            right: -7px;
-            top: 0;
-            width: 12px;
-            height: 12px;
-            background: var(--primary);
-            border-radius: 50%;
-        }
-        .tracking-date {
-            font-size: 12px;
-            color: #888;
-        }
-        .tracking-status {
-            font-weight: bold;
-            color: var(--secondary);
-            margin: 5px 0;
-        }
-        .tracking-desc {
-            font-size: 14px;
-            color: #666;
-        }
-        .loading {
-            display: none;
-            text-align: center;
-            margin: 20px 0;
-        }
-        .error {
-            color: #ff4747;
-            text-align: center;
-            display: none;
-        }
-        .nav-back {
-            display: block;
-            text-align: center;
-            margin-top: 20px;
-            color: var(--secondary);
-            text-decoration: none;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1><i class="fas fa-truck-moving"></i> تتبع الطرود</h1>
+        <h1><i class="fas fa-chart-line"></i> تتبع مبيعات الأفلييت (Live)</h1>
         
-        <div class="search-box">
-            <input type="text" id="trackingNumber" placeholder="أدخل رقم التتبع (مثلاً: RK123456789CN)">
-            <button onclick="trackOrder()">تتبع</button>
+        <div class="filters">
+            <input type="date" id="startDate">
+            <input type="date" id="endDate">
+            <button class="refresh-btn" onclick="fetchLiveOrders()">تحديث البيانات</button>
         </div>
 
-        <div class="loading" id="loading">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>إجمالي الطلبات</h3>
+                <p id="totalOrders">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>العمولة المتوقعة</h3>
+                <p id="totalCommission">$0.00</p>
+            </div>
+            <div class="stat-card">
+                <h3>قيمة المبيعات</h3>
+                <p id="totalSales">$0.00</p>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>وقت الدفع</th>
+                        <th>رقم الطلب</th>
+                        <th>المنتج</th>
+                        <th>الحالة</th>
+                        <th>المبلغ</th>
+                        <th>العمولة</th>
+                    </tr>
+                </thead>
+                <tbody id="ordersTableBody">
+                    <!-- Orders will be injected here -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="loading" id="loading" style="display: none; text-align: center; margin: 20px;">
             <i class="fas fa-spinner fa-spin fa-2x"></i>
-            <p>جاري جلب المعلومات...</p>
+            <p>جاري جلب بيانات المبيعات...</p>
         </div>
 
-        <div class="error" id="error">
-            لا يمكن العثور على معلومات لهذا الرقم. تأكد من الرقم وحاول مجدداً.
-        </div>
-
-        <div class="result-container" id="results">
-            <!-- Tracking events will be injected here -->
-        </div>
-
-        <a href="/" class="nav-back"><i class="fas fa-arrow-right"></i> العودة للرئيسية</a>
+        <a href="/" class="nav-back" style="display: block; text-align: center; margin-top: 25px; color: #888; text-decoration: none;">
+            <i class="fas fa-arrow-right"></i> العودة للرئيسية
+        </a>
     </div>
 
     <script>
-        async function trackOrder() {
-            const num = document.getElementById('trackingNumber').value.trim();
-            if (!num) return alert('الرجاء إدخال رقم التتبع');
+        // Set default dates
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('startDate').value = today;
+        document.getElementById('endDate').value = today;
 
+        async function fetchLiveOrders() {
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+            
             document.getElementById('loading').style.display = 'block';
-            document.getElementById('results').style.display = 'none';
-            document.getElementById('error').style.display = 'none';
-            document.getElementById('results').innerHTML = '';
+            document.getElementById('ordersTableBody').innerHTML = '';
 
             try {
-                // Using a public tracking API or proxy
-                const response = await fetch(`/api/track/${num}`);
+                const response = await fetch(`/api/live-orders?start=${start}&end=${end}`);
                 const data = await response.json();
 
-                if (data.success && data.events && data.events.length > 0) {
-                    data.events.forEach(event => {
-                        const div = document.createElement('div');
-                        div.className = 'tracking-item';
-                        div.innerHTML = `
-                            <div class="tracking-date">${event.time}</div>
-                            <div class="tracking-status">${event.status}</div>
-                            <div class="tracking-desc">${event.description || ''}</div>
+                if (data.success) {
+                    document.getElementById('totalOrders').textContent = data.summary.totalCount;
+                    document.getElementById('totalCommission').textContent = `$${data.summary.totalCommission.toFixed(2)}`;
+                    document.getElementById('totalSales').textContent = `$${data.summary.totalSales.toFixed(2)}`;
+
+                    data.orders.forEach(order => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${order.time}</td>
+                            <td class="order-id">${order.orderId}</td>
+                            <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${order.productName}</td>
+                            <td><span class="status-badge ${order.status === 'Completed' ? 'status-paid' : 'status-pending'}">${order.status}</span></td>
+                            <td>$${order.amount.toFixed(2)}</td>
+                            <td style="color: #4CAF50; font-weight: bold;">$${order.commission.toFixed(2)}</td>
                         `;
-                        document.getElementById('results').appendChild(div);
+                        document.getElementById('ordersTableBody').appendChild(tr);
                     });
-                    document.getElementById('results').style.display = 'block';
                 } else {
-                    document.getElementById('error').style.display = 'block';
+                    alert('فشل في جلب البيانات: ' + (data.error || 'خطأ غير معروف'));
                 }
             } catch (err) {
-                document.getElementById('error').style.display = 'block';
+                alert('خطأ في الاتصال بالخادم');
             } finally {
                 document.getElementById('loading').style.display = 'none';
             }
         }
+
+        // Initial fetch
+        fetchLiveOrders();
     </script>
+</body>
+</html>
 </body>
 </html>
