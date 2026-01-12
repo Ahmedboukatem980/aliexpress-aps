@@ -1011,6 +1011,23 @@ app.get('/api/categories', (req, res) => {
   res.json({ success: true, categories });
 });
 
+// Tracking API endpoint (Proxy for tracking services)
+app.get('/api/track/:number', async (req, res) => {
+  const { number } = req.params;
+  try {
+    // For demonstration, we'll provide a mock response for now
+    res.json({
+      success: true,
+      events: [
+        { time: new Date().toLocaleString(), status: "جاري المعالجة", description: "تم استلام معلومات الشحنة" },
+        { time: new Date().toLocaleString(), status: "في انتظار الشحن", description: "المنتج جاهز للشحن من قبل البائع" }
+      ]
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running on port ${PORT}`);

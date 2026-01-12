@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تتبع الطرود - AliExpress</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #ff4747;
+            --secondary: #2c3e50;
+            --bg: #f4f7f6;
+            --white: #ffffff;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: var(--white);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: var(--secondary);
+            margin-bottom: 30px;
+        }
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        input:focus {
+            border-color: var(--primary);
+        }
+        button {
+            padding: 12px 25px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #e03e3e;
+        }
+        .result-container {
+            display: none;
+            margin-top: 30px;
+        }
+        .tracking-item {
+            position: relative;
+            padding-right: 30px;
+            padding-bottom: 20px;
+            border-right: 2px solid #eee;
+        }
+        .tracking-item::before {
+            content: '';
+            position: absolute;
+            right: -7px;
+            top: 0;
+            width: 12px;
+            height: 12px;
+            background: var(--primary);
+            border-radius: 50%;
+        }
+        .tracking-date {
+            font-size: 12px;
+            color: #888;
+        }
+        .tracking-status {
+            font-weight: bold;
+            color: var(--secondary);
+            margin: 5px 0;
+        }
+        .tracking-desc {
+            font-size: 14px;
+            color: #666;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .error {
+            color: #ff4747;
+            text-align: center;
+            display: none;
+        }
+        .nav-back {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: var(--secondary);
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><i class="fas fa-truck-moving"></i> تتبع الطرود</h1>
+        
+        <div class="search-box">
+            <input type="text" id="trackingNumber" placeholder="أدخل رقم التتبع (مثلاً: RK123456789CN)">
+            <button onclick="trackOrder()">تتبع</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <i class="fas fa-spinner fa-spin fa-2x"></i>
+            <p>جاري جلب المعلومات...</p>
+        </div>
+
+        <div class="error" id="error">
+            لا يمكن العثور على معلومات لهذا الرقم. تأكد من الرقم وحاول مجدداً.
+        </div>
+
+        <div class="result-container" id="results">
+            <!-- Tracking events will be injected here -->
+        </div>
+
+        <a href="/" class="nav-back"><i class="fas fa-arrow-right"></i> العودة للرئيسية</a>
+    </div>
+
+    <script>
+        async function trackOrder() {
+            const num = document.getElementById('trackingNumber').value.trim();
+            if (!num) return alert('الرجاء إدخال رقم التتبع');
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('results').innerHTML = '';
+
+            try {
+                // Using a public tracking API or proxy
+                const response = await fetch(`/api/track/${num}`);
+                const data = await response.json();
+
+                if (data.success && data.events && data.events.length > 0) {
+                    data.events.forEach(event => {
+                        const div = document.createElement('div');
+                        div.className = 'tracking-item';
+                        div.innerHTML = `
+                            <div class="tracking-date">${event.time}</div>
+                            <div class="tracking-status">${event.status}</div>
+                            <div class="tracking-desc">${event.description || ''}</div>
+                        `;
+                        document.getElementById('results').appendChild(div);
+                    });
+                    document.getElementById('results').style.display = 'block';
+                } else {
+                    document.getElementById('error').style.display = 'block';
+                }
+            } catch (err) {
+                document.getElementById('error').style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
