@@ -663,19 +663,17 @@ app.post('/api/ai-refine-title', async (req, res) => {
     try {
       let prompt;
       if (isHook) {
-        prompt = `You are an Algerian marketing expert. Make SMALL improvements to this hook in Algerian Darija.
+        prompt = `أنت خبير كتابة بالدارجة الجزائرية. حسّن هذه الجملة تحسين بسيط فقط.
 
-CRITICAL RULES:
-1. Keep the SAME meaning - only polish wording slightly.
-2. DO NOT rewrite completely or change the main idea.
-3. Fix grammar/spelling, make words flow better.
-4. Keep Arabic letters only.
-5. Keep similar length.
-6. Return ONLY the improved text.
-7. No emojis.
-8. If already good, make minimal changes only.
+القواعد:
+- حافظ على نفس المعنى والفكرة الأساسية
+- صحح الأخطاء الإملائية إن وجدت
+- حسّن تدفق الكلمات قليلاً
+- لا تغير الجملة بالكامل
+- لا تضف إيموجي
+- أرجع النص المحسّن فقط بدون شرح
 
-Original: ${title}`;
+النص الأصلي: ${title}`;
       } else {
         prompt = `You are a professional marketing expert specialized in AliExpress deals for the Algerian market.
 Your task is to refine the product title to be more attractive, professional, and engaging for Telegram channel users.
@@ -756,20 +754,20 @@ app.post('/api/generate-algerian-hook', async (req, res) => {
     }
 
     try {
-      const prompt = `You are an Algerian marketing expert who writes in Algerian Darija (الدارجة الجزائرية).
-Your task is to write ONE short, catchy opening line (hook) for a Telegram post about this product.
+      const prompt = `أنت خبير تسويق جزائري تكتب بالدارجة الجزائرية الأصيلة.
+اكتب مقدمة قصيرة وجذابة لمنشور تيليجرام عن هذا المنتج.
 
-RULES:
-1. Write ONLY in Algerian Darija using Arabic letters.
-2. Make it friendly and exciting, like you're telling a friend about a great deal.
-3. Use common Algerian expressions like: "يا خاوتي", "لافير", "سلعة هبال", "سومة هابطة", "ما تتفوتش", "بروفيتيو".
-4. Keep it to ONE line only (max 10 words).
-5. Do NOT include the product name or price in the hook.
-6. Do NOT add emojis.
-7. Return ONLY the hook text, nothing else.
+القواعد:
+- اكتب بالدارجة الجزائرية فقط (حروف عربية)
+- استخدم تعبيرات جزائرية مثل: "يا خاوتي"، "لافير"، "سلعة هبال"، "سومة هابطة"، "ما تتفوتش"، "بروفيتيو"، "راه يسوى"
+- اجعلها ودية ومثيرة مثل حديث مع صديق
+- سطر واحد فقط (5-10 كلمات)
+- لا تذكر اسم المنتج أو السعر
+- لا إيموجي
+- أرجع المقدمة فقط
 
-Product: ${title}
-${price ? `Price: ${price}` : ''}`;
+المنتج: ${title}
+${price ? `السعر: ${price}` : ''}`;
       
       // Use rotation-enabled function
       const hook = await runGeminiWithRotation(prompt);
