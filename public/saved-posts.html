@@ -103,28 +103,43 @@
         }
 
         async function loadPosts() {
+            document.getElementById('loadingState').style.display = 'none';
+            
+            // Get posts from localStorage first (always available)
+            let localPosts = JSON.parse(localStorage.getItem('savedPosts') || '[]');
+            
+            // Try to get from server too and merge
             try {
                 const res = await fetch('/api/saved-posts');
                 const data = await res.json();
                 
-                document.getElementById('loadingState').style.display = 'none';
-                
                 if (data.success && data.posts.length > 0) {
-                    savedPosts = data.posts;
-                    document.getElementById('postsCount').textContent = data.posts.length;
-                    document.getElementById('clearAllBtn').style.display = 'flex';
-                    document.getElementById('emptyState').style.display = 'none';
-                    renderPosts(data.posts);
-                } else {
-                    document.getElementById('emptyState').style.display = 'block';
-                    document.getElementById('postsList').innerHTML = '';
-                    document.getElementById('clearAllBtn').style.display = 'none';
-                    document.getElementById('postsCount').textContent = '0';
+                    // Merge server posts with local (avoid duplicates by id)
+                    const localIds = new Set(localPosts.map(p => p.id));
+                    data.posts.forEach(p => {
+                        if (!localIds.has(p.id)) localPosts.push(p);
+                    });
+                    // Sort by date descending
+                    localPosts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                    // Limit to 50
+                    if (localPosts.length > 50) localPosts = localPosts.slice(0, 50);
+                    localStorage.setItem('savedPosts', JSON.stringify(localPosts));
                 }
             } catch (e) {
-                document.getElementById('loadingState').style.display = 'none';
+                console.log('Server fetch failed, using localStorage');
+            }
+            
+            if (localPosts.length > 0) {
+                savedPosts = localPosts;
+                document.getElementById('postsCount').textContent = localPosts.length;
+                document.getElementById('clearAllBtn').style.display = 'flex';
+                document.getElementById('emptyState').style.display = 'none';
+                renderPosts(localPosts);
+            } else {
                 document.getElementById('emptyState').style.display = 'block';
-                showToast('خطأ في تحميل المنشورات', 'error');
+                document.getElementById('postsList').innerHTML = '';
+                document.getElementById('clearAllBtn').style.display = 'none';
+                document.getElementById('postsCount').textContent = '0';
             }
         }
 
@@ -218,25 +233,33 @@
         async function deletePost(id) {
             if (!confirm('هل تريد حذف هذا المنشور؟')) return;
             
+            // Delete from localStorage
+            let localPosts = JSON.parse(localStorage.getItem('savedPosts') || '[]');
+            localPosts = localPosts.filter(p => p.id !== id);
+            localStorage.setItem('savedPosts', JSON.stringify(localPosts));
+            
+            // Delete from server too
             try {
                 await fetch(`/api/saved-posts/${id}`, { method: 'DELETE' });
-                showToast('تم حذف المنشور', 'success');
-                loadPosts();
-            } catch (e) {
-                showToast('خطأ في الحذف', 'error');
-            }
+            } catch (e) {}
+            
+            showToast('تم حذف المنشور', 'success');
+            loadPosts();
         }
 
         document.getElementById('clearAllBtn').onclick = async () => {
             if (!confirm('هل تريد حذف جميع المنشورات المحفوظة؟')) return;
             
+            // Clear localStorage
+            localStorage.removeItem('savedPosts');
+            
+            // Clear server too
             try {
                 await fetch('/api/saved-posts', { method: 'DELETE' });
-                showToast('تم حذف جميع المنشورات', 'success');
-                loadPosts();
-            } catch (e) {
-                showToast('خطأ في الحذف', 'error');
-            }
+            } catch (e) {}
+            
+            showToast('تم حذف جميع المنشورات', 'success');
+            loadPosts();
         };
 
         loadPosts();

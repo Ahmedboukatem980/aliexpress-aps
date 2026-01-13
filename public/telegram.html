@@ -649,22 +649,33 @@
         loadScheduledPosts();
 
         async function saveCurrentPost() {
+            const postData = {
+                id: Date.now().toString(),
+                title: productTitle.value,
+                price: salePrice.value,
+                link: purchaseLink.value,
+                coupon: couponCode.value || null,
+                image: isFramed && framedImageData.value ? framedImageData.value : (productImage.value || null),
+                message: messagePreview.value,
+                hook: algerianHook.value,
+                createdAt: new Date().toISOString()
+            };
+            
+            // Save to localStorage as backup
+            let localPosts = JSON.parse(localStorage.getItem('savedPosts') || '[]');
+            localPosts.unshift(postData);
+            if (localPosts.length > 50) localPosts = localPosts.slice(0, 50);
+            localStorage.setItem('savedPosts', JSON.stringify(localPosts));
+            
+            // Also save to server
             try {
                 await fetch('/api/saved-posts', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        title: productTitle.value,
-                        price: salePrice.value,
-                        link: purchaseLink.value,
-                        coupon: couponCode.value || null,
-                        image: isFramed && framedImageData.value ? framedImageData.value : (productImage.value || null),
-                        message: messagePreview.value,
-                        hook: algerianHook.value
-                    })
+                    body: JSON.stringify(postData)
                 });
             } catch (e) {
-                console.error('Error saving post:', e);
+                console.error('Error saving post to server:', e);
             }
         }
         
