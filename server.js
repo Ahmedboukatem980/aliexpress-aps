@@ -1012,72 +1012,38 @@ app.get('/api/categories', (req, res) => {
   res.json({ success: true, categories });
 });
 
-// Saved Posts System
-const SAVED_POSTS_FILE = path.join(__dirname, 'saved_posts.json');
-
-function loadSavedPosts() {
-  try {
-    if (fs.existsSync(SAVED_POSTS_FILE)) {
-      return JSON.parse(fs.readFileSync(SAVED_POSTS_FILE, 'utf8'));
-    }
-  } catch (e) {
-    console.log('Error loading saved posts:', e.message);
-  }
-  return [];
-}
-
-function savePosts(posts) {
-  try {
-    fs.writeFileSync(SAVED_POSTS_FILE, JSON.stringify(posts, null, 2));
-    return true;
-  } catch (e) {
-    console.log('Error saving posts:', e.message);
-    return false;
-  }
-}
+// Saved Posts System - Using PostgreSQL Database
+const db = require('./db');
 
 // Get all saved posts
-app.get('/api/saved-posts', (req, res) => {
-  const posts = loadSavedPosts();
-  res.json({ success: true, posts });
+app.get('/api/saved-posts', async (req, res) => {
+  try {
+    const posts = await db.getSavedPosts();
+    res.json({ success: true, posts });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // Save a new post
-app.post('/api/saved-posts', (req, res) => {
+app.post('/api/saved-posts', async (req, res) => {
   try {
     const { title, price, link, coupon, image, message, hook } = req.body;
-    const posts = loadSavedPosts();
-    
-    const newPost = {
-      id: Date.now().toString(),
-      title,
-      price,
-      link,
-      coupon,
-      image,
-      message,
-      hook,
-      createdAt: new Date().toISOString()
-    };
-    
-    posts.unshift(newPost);
-    
-    // Keep only last 50 posts
-    if (posts.length > 50) posts.pop();
-    
-    savePosts(posts);
-    res.json({ success: true, post: newPost });
+    const newPost = await db.addSavedPost({ title, price, link, coupon, image, message, hook });
+    if (newPost) {
+      res.json({ success: true, post: newPost });
+    } else {
+      res.status(500).json({ success: false, error: 'فشل حفظ المنشور' });
+    }
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // Delete a saved post
-app.delete('/api/saved-posts/:id', (req, res) => {
+app.delete('/api/saved-posts/:id', async (req, res) => {
   try {
-    let posts = loadSavedPosts();
-    posts = posts.filter(p => p.id !== req.params.id);
-    savePosts(posts);
+    await db.deleteSavedPost(req.params.id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -1085,9 +1051,9 @@ app.delete('/api/saved-posts/:id', (req, res) => {
 });
 
 // Clear all saved posts
-app.delete('/api/saved-posts', (req, res) => {
+app.delete('/api/saved-posts', async (req, res) => {
   try {
-    savePosts([]);
+    await db.clearAllSavedPosts();
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
