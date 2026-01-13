@@ -744,32 +744,58 @@
             }
         });
 
-        // Logo upload handler
+        // Logo upload handler - save to localStorage for persistence
         document.getElementById('logoUpload').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
             
-            const formData = new FormData();
-            formData.append('logo', file);
-            
-            try {
-                const res = await fetch('/api/upload-logo', {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await res.json();
-                if (result.success) {
-                    const preview = document.getElementById('currentLogoPreview');
-                    preview.src = '/watermark_logo.png?' + Date.now();
-                    preview.style.display = 'block';
-                    showToast('تم تحميل اللوقو بنجاح');
-                } else {
-                    showToast('فشل تحميل اللوقو');
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                const logoBase64 = event.target.result;
+                localStorage.setItem('channelLogo', logoBase64);
+                
+                const formData = new FormData();
+                formData.append('logo', file);
+                
+                try {
+                    const res = await fetch('/api/upload-logo', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const result = await res.json();
+                    if (result.success) {
+                        const preview = document.getElementById('currentLogoPreview');
+                        preview.src = logoBase64;
+                        preview.style.display = 'block';
+                        showToast('تم تحميل اللوقو بنجاح');
+                    } else {
+                        showToast('فشل تحميل اللوقو');
+                    }
+                } catch (err) {
+                    showToast('خطأ في تحميل اللوقو');
                 }
-            } catch (err) {
-                showToast('خطأ في تحميل اللوقو');
-            }
+            };
+            reader.readAsDataURL(file);
         });
+        
+        // Restore logo from localStorage on page load
+        const savedLogo = localStorage.getItem('channelLogo');
+        if (savedLogo) {
+            const preview = document.getElementById('currentLogoPreview');
+            preview.src = savedLogo;
+            preview.style.display = 'block';
+            
+            // Re-upload to server if not exists
+            fetch('/watermark_logo.png', { method: 'HEAD' })
+                .then(r => { if (!r.ok) throw new Error(); })
+                .catch(() => {
+                    fetch(savedLogo).then(r => r.blob()).then(blob => {
+                        const formData = new FormData();
+                        formData.append('logo', blob, 'logo.png');
+                        fetch('/api/upload-logo', { method: 'POST', body: formData });
+                    });
+                });
+        }
 
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
     </script>
