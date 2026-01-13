@@ -5,6 +5,45 @@ const pool = new Pool({
   ssl: process.env.DATABASE_URL?.includes('render.com') ? { rejectUnauthorized: false } : false
 });
 
+async function initDatabase() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS saved_posts (
+        id SERIAL PRIMARY KEY,
+        visible_id VARCHAR(50) UNIQUE NOT NULL,
+        title TEXT,
+        price VARCHAR(100),
+        link TEXT,
+        coupon VARCHAR(100),
+        image TEXT,
+        message TEXT,
+        hook TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS scheduled_posts (
+        id SERIAL PRIMARY KEY,
+        visible_id VARCHAR(50) UNIQUE NOT NULL,
+        title TEXT,
+        price VARCHAR(100),
+        link TEXT,
+        coupon VARCHAR(100),
+        image TEXT,
+        message TEXT,
+        scheduled_time TIMESTAMP,
+        credentials JSONB,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('✅ Database tables initialized');
+  } catch (e) {
+    console.error('❌ Database init error:', e.message);
+  }
+}
+
+initDatabase();
+
 async function getSavedPosts() {
   const result = await pool.query(
     'SELECT * FROM saved_posts ORDER BY created_at DESC LIMIT 50'
