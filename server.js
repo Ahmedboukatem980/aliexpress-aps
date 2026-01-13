@@ -346,10 +346,10 @@ app.post('/api/frame-image', async (req, res) => {
     const frameWidth = frameMetadata.width;
     const frameHeight = frameMetadata.height;
     
-    const innerLeft = Math.round(frameWidth * 0.03);
-    const innerTop = Math.round(frameHeight * 0.03);
-    const innerWidth = Math.round(frameWidth * 0.94);
-    const innerHeight = Math.round(frameHeight * 0.78);
+    const innerLeft = Math.round(frameWidth * 0.02);
+    const innerTop = Math.round(frameHeight * 0.02);
+    const innerWidth = Math.round(frameWidth * 0.96);
+    const innerHeight = Math.round(frameHeight * 0.85);
     
     const resizedProduct = await sharp(productImageBuffer)
       .resize(innerWidth, innerHeight, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } })
