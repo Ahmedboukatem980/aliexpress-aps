@@ -18,9 +18,8 @@ An Arabic-language web application for generating AliExpress affiliate links and
 
 ## Tech Stack
 - **Backend**: Node.js with Express
-- **Database**: PostgreSQL with Drizzle ORM
 - **Frontend**: Vanilla HTML/CSS/JavaScript (PWA)
-- **Dependencies**: axios, cheerio, cors, express, sharp, telegraf, pg, drizzle-orm
+- **Dependencies**: axios, cheerio, cors, express, sharp, telegraf
 
 ## Running the App
 The app runs on port 5000 with the command:
@@ -53,7 +52,7 @@ npm start
   - View all saved posts with thumbnails
   - One-click republish to Telegram
   - Edit saved posts before republishing
-  - Posts stored in PostgreSQL database (persistent across restarts)
+  - Posts stored in `saved_posts.json` (gitignored)
 
 ## Product Metadata Extraction
 The app uses multiple fallback methods to extract product title and image:
@@ -66,14 +65,3 @@ The app uses multiple fallback methods to extract product title and image:
 - `TELEGRAM_CHANNEL_ID` - Default channel ID
 - `cook` - AliExpress cookie for affiliate generation
 - `GEMINI_API_KEY` - Single or multiple keys (comma-separated) for AI features
-- `DATABASE_URL` - PostgreSQL connection string (auto-configured on Replit)
-
-## Database Schema
-- `saved_posts` - Stores published posts for republishing
-- `scheduled_posts` - Stores scheduled posts for future publishing
-- `app_settings` - Stores app configuration (logo, preferences)
-
-## Project Files
-- `db.js` - Database operations module
-- `shared/schema.ts` - Drizzle ORM schema definitions
-- `drizzle.config.ts` - Drizzle configuration

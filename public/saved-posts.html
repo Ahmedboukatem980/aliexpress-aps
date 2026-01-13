@@ -107,23 +107,14 @@
                 const res = await fetch('/api/saved-posts');
                 const data = await res.json();
                 
-                let posts = [];
-                if (data.success && data.posts.length > 0) {
-                    posts = data.posts;
-                    localStorage.setItem('savedPosts_backup', JSON.stringify(posts));
-                } else {
-                    const backup = localStorage.getItem('savedPosts_backup');
-                    if (backup) posts = JSON.parse(backup);
-                }
-
                 document.getElementById('loadingState').style.display = 'none';
                 
-                if (posts.length > 0) {
-                    savedPosts = posts;
-                    document.getElementById('postsCount').textContent = posts.length;
+                if (data.success && data.posts.length > 0) {
+                    savedPosts = data.posts;
+                    document.getElementById('postsCount').textContent = data.posts.length;
                     document.getElementById('clearAllBtn').style.display = 'flex';
                     document.getElementById('emptyState').style.display = 'none';
-                    renderPosts(posts);
+                    renderPosts(data.posts);
                 } else {
                     document.getElementById('emptyState').style.display = 'block';
                     document.getElementById('postsList').innerHTML = '';
@@ -131,18 +122,97 @@
                     document.getElementById('postsCount').textContent = '0';
                 }
             } catch (e) {
-                const backup = localStorage.getItem('savedPosts_backup');
-                if (backup) {
-                    savedPosts = JSON.parse(backup);
-                    renderPosts(savedPosts);
-                    document.getElementById('loadingState').style.display = 'none';
-                    document.getElementById('emptyState').style.display = 'none';
-                } else {
-                    document.getElementById('loadingState').style.display = 'none';
-                    document.getElementById('emptyState').style.display = 'block';
-                    showToast('خطأ في تحميل المنشورات', 'error');
-                }
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('emptyState').style.display = 'block';
+                showToast('خطأ في تحميل المنشورات', 'error');
             }
+        }
+
+        function renderPosts(posts) {
+            const list = document.getElementById('postsList');
+            list.innerHTML = posts.map(p => `
+                <div class="post-card" data-id="${p.id}">
+                    <div class="post-header">
+                        ${p.image ? 
+                            `<img src="${p.image}" class="post-image" onerror="this.outerHTML='<div class=\\'post-image-placeholder\\'><i class=\\'fas fa-image\\'></i></div>'">` : 
+                            '<div class="post-image-placeholder"><i class="fas fa-image"></i></div>'
+                        }
+                        <div class="post-info">
+                            <div class="post-title">${p.title || 'بدون عنوان'}</div>
+                            <div class="post-price">${p.price || ''}</div>
+                            <div class="post-date"><i class="fas fa-calendar"></i> ${new Date(p.createdAt).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                    </div>
+                    <div class="post-actions">
+                        <button class="action-btn republish-btn" onclick="republishPost('${p.id}', this)">
+                            <i class="fab fa-telegram"></i> إعادة النشر
+                        </button>
+                        <button class="action-btn edit-btn" onclick="editPost('${p.id}')">
+                            <i class="fas fa-edit"></i> تعديل
+                        </button>
+                        <button class="action-btn delete-btn" onclick="deletePost('${p.id}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function republishPost(id, btn) {
+            const post = savedPosts.find(p => p.id === id);
+            if (!post) { showToast('لم يتم العثور على المنشور', 'error'); return; }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري النشر...';
+
+            try {
+                const credentials = {
+                    telegramToken: settings.telegramToken || '',
+                    channelId: settings.channelId || '',
+                    channelId2: settings.channelId2 || '',
+                    channelChoice: 'both'
+                };
+
+                const res = await fetch('/api/publish-telegram', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: post.title,
+                        price: post.price,
+                        link: post.link,
+                        coupon: post.coupon || null,
+                        image: post.image,
+                        settings: settings,
+                        credentials: credentials,
+                        customMessage: post.message
+                    })
+                });
+
+                const result = await res.json();
+                if (result.success) {
+                    showToast('تم إعادة النشر بنجاح! ✅', 'success');
+                } else {
+                    showToast(result.error || 'فشل النشر', 'error');
+                }
+            } catch (e) {
+                showToast('خطأ في الاتصال', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fab fa-telegram"></i> إعادة النشر';
+            }
+        }
+
+        function editPost(id) {
+            const post = savedPosts.find(p => p.id === id);
+            if (!post) { showToast('لم يتم العثور على المنشور', 'error'); return; }
+            
+            const params = new URLSearchParams();
+            if (post.title) params.set('title', post.title);
+            if (post.price) params.set('price', post.price);
+            if (post.link) params.set('link', post.link);
+            if (post.image && !post.image.startsWith('data:')) params.set('image', post.image);
+            
+            window.location.href = '/telegram.html?' + params.toString();
         }
 
         async function deletePost(id) {
@@ -150,8 +220,6 @@
             
             try {
                 await fetch(`/api/saved-posts/${id}`, { method: 'DELETE' });
-                const backup = JSON.parse(localStorage.getItem('savedPosts_backup') || '[]');
-                localStorage.setItem('savedPosts_backup', JSON.stringify(backup.filter(p => p.id !== id)));
                 showToast('تم حذف المنشور', 'success');
                 loadPosts();
             } catch (e) {
@@ -164,7 +232,6 @@
             
             try {
                 await fetch('/api/saved-posts', { method: 'DELETE' });
-                localStorage.removeItem('savedPosts_backup');
                 showToast('تم حذف جميع المنشورات', 'success');
                 loadPosts();
             } catch (e) {
