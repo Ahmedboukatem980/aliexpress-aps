@@ -324,32 +324,6 @@
                     <p class="settings-hint">يفضل استخدام صورة مربعة (1:1) وبصيغة JPG أو PNG.</p>
                 </div>
                 
-                <div class="form-group">
-                    <label>💧 لوقو القناة (Watermark):</label>
-                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
-                        <img src="/watermark_logo.png" id="currentLogoPreview" style="width: 60px; height: 60px; border-radius: 8px; border: 1px solid #2d2d44; object-fit: contain; background: #1a1a2e;" onerror="this.style.display='none'">
-                        <div style="flex: 1;">
-                            <input type="file" id="logoUpload" accept="image/*" style="display: none;">
-                            <button type="button" onclick="document.getElementById('logoUpload').click()" class="action-btn" style="background: #9C27B0; width: 100%;"><i class="fas fa-upload"></i> رفع لوقو القناة</button>
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 10px; margin-top: 10px;">
-                        <select id="settingWatermarkPosition" style="flex: 1; padding: 10px; border-radius: 8px; border: 2px solid #2d2d44; background: #16213e; color: #fff; font-family: 'Cairo', sans-serif;">
-                            <option value="bottom-right">أسفل يمين</option>
-                            <option value="bottom-left">أسفل يسار</option>
-                            <option value="top-right">أعلى يمين</option>
-                            <option value="top-left">أعلى يسار</option>
-                            <option value="center">وسط</option>
-                        </select>
-                        <select id="settingWatermarkSize" style="flex: 1; padding: 10px; border-radius: 8px; border: 2px solid #2d2d44; background: #16213e; color: #fff; font-family: 'Cairo', sans-serif;">
-                            <option value="small">صغير</option>
-                            <option value="medium">متوسط</option>
-                            <option value="large">كبير</option>
-                        </select>
-                    </div>
-                    <p class="settings-hint">سيتم إضافة اللوقو تلقائياً عند إضافة إطار للصورة. يفضل استخدام صورة PNG بخلفية شفافة.</p>
-                </div>
-                
                 <hr>
                 <h3 style="color: #FF6B35; margin-bottom: 15px; font-size: 16px;">🔐 إعدادات الحساب</h3>
                 
@@ -444,8 +418,6 @@
             cook: '',
             appKey: '',
             appSecret: '',
-            watermarkPosition: 'bottom-right',
-            watermarkSize: 'medium'
         };
 
         let settings = JSON.parse(localStorage.getItem('appSettings')) || { ...defaultSettings };
@@ -467,8 +439,6 @@
             document.getElementById('settingCook').value = settings.cook || '';
             document.getElementById('settingAppKey').value = settings.appKey || '';
             document.getElementById('settingAppSecret').value = settings.appSecret || '';
-            document.getElementById('settingWatermarkPosition').value = settings.watermarkPosition || 'bottom-right';
-            document.getElementById('settingWatermarkSize').value = settings.watermarkSize || 'medium';
             document.getElementById('settingGeminiKeys').value = '';
             checkGeminiStatus();
             document.getElementById('settingsModal').classList.add('show');
@@ -533,8 +503,6 @@
             settings.cook = document.getElementById('settingCook').value;
             settings.appKey = document.getElementById('settingAppKey').value;
             settings.appSecret = document.getElementById('settingAppSecret').value;
-            settings.watermarkPosition = document.getElementById('settingWatermarkPosition').value;
-            settings.watermarkSize = document.getElementById('settingWatermarkSize').value;
             
             localStorage.setItem('appSettings', JSON.stringify(settings));
             document.getElementById('warningText').textContent = settings.warning;
@@ -743,59 +711,6 @@
                 showToast('خطأ في تحميل الإطار');
             }
         });
-
-        // Logo upload handler - save to localStorage for persistence
-        document.getElementById('logoUpload').addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-                const logoBase64 = event.target.result;
-                localStorage.setItem('channelLogo', logoBase64);
-                
-                const formData = new FormData();
-                formData.append('logo', file);
-                
-                try {
-                    const res = await fetch('/api/upload-logo', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    const result = await res.json();
-                    if (result.success) {
-                        const preview = document.getElementById('currentLogoPreview');
-                        preview.src = logoBase64;
-                        preview.style.display = 'block';
-                        showToast('تم تحميل اللوقو بنجاح');
-                    } else {
-                        showToast('فشل تحميل اللوقو');
-                    }
-                } catch (err) {
-                    showToast('خطأ في تحميل اللوقو');
-                }
-            };
-            reader.readAsDataURL(file);
-        });
-        
-        // Restore logo from localStorage on page load
-        const savedLogo = localStorage.getItem('channelLogo');
-        if (savedLogo) {
-            const preview = document.getElementById('currentLogoPreview');
-            preview.src = savedLogo;
-            preview.style.display = 'block';
-            
-            // Re-upload to server if not exists
-            fetch('/watermark_logo.png', { method: 'HEAD' })
-                .then(r => { if (!r.ok) throw new Error(); })
-                .catch(() => {
-                    fetch(savedLogo).then(r => r.blob()).then(blob => {
-                        const formData = new FormData();
-                        formData.append('logo', blob, 'logo.png');
-                        fetch('/api/upload-logo', { method: 'POST', body: formData });
-                    });
-                });
-        }
 
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
     </script>
