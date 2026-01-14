@@ -324,6 +324,32 @@
                     <p class="settings-hint">يفضل استخدام صورة مربعة (1:1) وبصيغة JPG أو PNG.</p>
                 </div>
                 
+                <div class="form-group">
+                    <label>🏷️ لوقو القناة (Watermark):</label>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                        <img src="/watermark_logo.png" id="currentLogoPreview" style="width: 60px; height: 60px; border-radius: 8px; border: 1px solid #2d2d44; object-fit: contain; background: #1a1a2e;" onerror="this.style.opacity='0.3'">
+                        <div style="flex: 1;">
+                            <input type="file" id="logoUpload" accept="image/png" style="display: none;">
+                            <button type="button" onclick="document.getElementById('logoUpload').click()" class="action-btn" style="background: #9C27B0; width: 100%;"><i class="fas fa-upload"></i> تغيير اللوقو</button>
+                        </div>
+                    </div>
+                    <p class="settings-hint">استخدم PNG بخلفية شفافة للحصول على أفضل نتيجة.</p>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <select id="logoPosition" style="flex: 1; padding: 10px; background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 8px; color: #fff; font-family: 'Cairo', sans-serif;">
+                            <option value="top-right">أعلى يمين</option>
+                            <option value="top-left">أعلى يسار</option>
+                            <option value="bottom-right">أسفل يمين</option>
+                            <option value="bottom-left">أسفل يسار</option>
+                            <option value="center">وسط</option>
+                        </select>
+                        <select id="logoSize" style="flex: 1; padding: 10px; background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 8px; color: #fff; font-family: 'Cairo', sans-serif;">
+                            <option value="small">صغير</option>
+                            <option value="medium">متوسط</option>
+                            <option value="large">كبير</option>
+                        </select>
+                    </div>
+                </div>
+                
                 <hr>
                 <h3 style="color: #FF6B35; margin-bottom: 15px; font-size: 16px;">🔐 إعدادات الحساب</h3>
                 
@@ -735,6 +761,71 @@
                     });
                 });
         }
+        
+        // Logo upload handler
+        document.getElementById('logoUpload').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                const logoBase64 = event.target.result;
+                localStorage.setItem('channelLogo', logoBase64);
+                
+                const formData = new FormData();
+                formData.append('logo', file);
+                
+                try {
+                    const res = await fetch('/api/upload-logo', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const result = await res.json();
+                    if (result.success) {
+                        document.getElementById('currentLogoPreview').src = logoBase64;
+                        document.getElementById('currentLogoPreview').style.opacity = '1';
+                        showToast('تم تحميل اللوقو بنجاح');
+                    } else {
+                        showToast('فشل تحميل اللوقو');
+                    }
+                } catch (err) {
+                    showToast('خطأ في تحميل اللوقو');
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+        
+        // Restore logo from localStorage on page load
+        const savedLogo = localStorage.getItem('channelLogo');
+        if (savedLogo) {
+            document.getElementById('currentLogoPreview').src = savedLogo;
+            document.getElementById('currentLogoPreview').style.opacity = '1';
+            
+            // Re-upload to server if not exists
+            fetch('/watermark_logo.png', { method: 'HEAD' })
+                .then(r => { if (!r.ok) throw new Error(); })
+                .catch(() => {
+                    fetch(savedLogo).then(r => r.blob()).then(blob => {
+                        const formData = new FormData();
+                        formData.append('logo', blob, 'logo.png');
+                        fetch('/api/upload-logo', { method: 'POST', body: formData });
+                    });
+                });
+        }
+        
+        // Logo position and size change handlers
+        document.getElementById('logoPosition').addEventListener('change', (e) => {
+            settings.watermarkPosition = e.target.value;
+            localStorage.setItem('appSettings', JSON.stringify(settings));
+        });
+        document.getElementById('logoSize').addEventListener('change', (e) => {
+            settings.watermarkSize = e.target.value;
+            localStorage.setItem('appSettings', JSON.stringify(settings));
+        });
+        
+        // Restore logo settings
+        if (settings.watermarkPosition) document.getElementById('logoPosition').value = settings.watermarkPosition;
+        if (settings.watermarkSize) document.getElementById('logoSize').value = settings.watermarkSize;
 
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
     </script>
