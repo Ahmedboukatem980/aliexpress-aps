@@ -1045,11 +1045,19 @@ app.get('/api/saved-posts', (req, res) => {
 // Save a new post
 app.post('/api/saved-posts', (req, res) => {
   try {
-    const { title, price, link, coupon, image, message, hook } = req.body;
+    const { id, title, price, link, coupon, image, message, hook, createdAt } = req.body;
     const posts = loadSavedPosts();
     
+    // Use provided ID or generate new one
+    const postId = id || Date.now().toString();
+    
+    // Check if post with same ID already exists (avoid duplicates)
+    if (posts.some(p => p.id === postId)) {
+      return res.json({ success: true, message: 'Post already exists' });
+    }
+    
     const newPost = {
-      id: Date.now().toString(),
+      id: postId,
       title,
       price,
       link,
@@ -1057,7 +1065,7 @@ app.post('/api/saved-posts', (req, res) => {
       image,
       message,
       hook,
-      createdAt: new Date().toISOString()
+      createdAt: createdAt || new Date().toISOString()
     };
     
     posts.unshift(newPost);
