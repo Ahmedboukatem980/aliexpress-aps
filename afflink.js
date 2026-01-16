@@ -7,6 +7,25 @@ async function getFinalRedirect(url, maxRedirects = 10) {
     let currentUrl = url;
     let bestUrl = url;
     
+    // Specific handling for s.click.aliexpress.com which often uses meta-refresh or JS redirects
+    if (url.includes('s.click.aliexpress.com')) {
+        try {
+            const response = await got(url, {
+                followRedirect: true,
+                https: { rejectUnauthorized: false },
+                timeout: { request: 15000 },
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8'
+                }
+            });
+            currentUrl = response.url;
+            bestUrl = currentUrl;
+        } catch (err) {
+            console.error("❌ Initial redirect error:", err.message);
+        }
+    }
+
     for (let i = 0; i < maxRedirects; i++) {
         try {
             const response = await got(currentUrl, {
@@ -107,6 +126,14 @@ function extractProductId(url) {
         // 3) الرابط العادي /item/xxxx.html
         const m = u.pathname.match(/item\/(\d+)\.html/);
         if (m) return m[1];
+
+        // 4) روابط الجوال m.aliexpress.com/item/xxxx.html
+        const m3 = u.pathname.match(/\/(\d+)\.html/);
+        if (m3) return m3[1];
+
+        // 5) روابط البحث أو التصنيفات التي تحتوي على رقم المنتج في المسار
+        const m4 = url.match(/\/(\d{10,})\.html/);
+        if (m4) return m4[1];
 
         return null;
     } catch {
