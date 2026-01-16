@@ -181,7 +181,8 @@ async function fetchLinkPreview(productId) {
                 currency: apiResult.currency,
                 shop_name: apiResult.shop_name,
                 rating: apiResult.rating,
-                orders: apiResult.orders
+                orders: apiResult.orders,
+                fetch_method: "AliExpress API"
             };
         }
     } catch (apiErr) {
@@ -219,7 +220,8 @@ async function fetchLinkPreview(productId) {
                 return {
                     title: title,
                     image_url: imageUrl,
-                    price: "راجع الرابط"
+                    price: "راجع الرابط",
+                    fetch_method: "Microlink API"
                 };
             }
         }
@@ -294,7 +296,8 @@ async function fetchLinkPreview(productId) {
                             return {
                                 title: itemDetail.subject || itemDetail.title || title,
                                 image_url: itemDetail.mainImage || itemDetail.image || (itemDetail.images && itemDetail.images[0]) || null,
-                                price: itemDetail.price || (itemDetail.priceList && itemDetail.priceList[0]?.amount?.value) || "راجع الرابط"
+                                price: itemDetail.price || (itemDetail.priceList && itemDetail.priceList[0]?.amount?.value) || "راجع الرابط",
+                                fetch_method: "Direct Scraping"
                             };
                         }
                     } catch (e) {}
@@ -314,7 +317,8 @@ async function fetchLinkPreview(productId) {
                 return {
                     title: title,
                     image_url: (metaImage ? metaImage[1] : null),
-                    price: "راجع الرابط"
+                    price: "راجع الرابط",
+                    fetch_method: "Direct Scraping (Meta)"
                 };
             }
         } catch (err) {
@@ -339,7 +343,8 @@ async function fetchLinkPreview(productId) {
             return {
                 title: lpRes.body.title || `منتج AliExpress #${productId}`,
                 image_url: lpRes.body.image || null,
-                price: "راجع الرابط"
+                price: "راجع الرابط",
+                fetch_method: "LinkPreview API"
             };
         }
     } catch (err) {
@@ -350,7 +355,8 @@ async function fetchLinkPreview(productId) {
     return {
         title: `منتج AliExpress #${productId}`,
         image_url: null,
-        price: "راجع الرابط"
+        price: "راجع الرابط",
+        fetch_method: "None (Default Fallback)"
     };
 }
 

@@ -455,6 +455,7 @@ app.post('/api/affiliate', async (req, res) => {
         shop_name: result.previews.shop_name,
         rating: result.previews.rating,
         orders: result.previews.orders,
+        fetch_method: result.previews.fetch_method,
         links: {
           coin: result.aff.coin,
           point: result.aff.point,
