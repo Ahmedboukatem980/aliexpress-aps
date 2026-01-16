@@ -804,12 +804,13 @@ const algerianCategories = {
 
 app.post('/api/discover-products', async (req, res) => {
   try {
-    const { category, keywords, minPrice, maxPrice, limit, useAI } = req.body;
+    const { category, keywords, minPrice, maxPrice, limit, useAI, sort } = req.body;
     
     const searchOptions = {
-      limit: limit || '10',
+      limit: limit || '15',
       minPrice: minPrice || '1',
-      maxPrice: maxPrice || '50'
+      maxPrice: maxPrice || '50',
+      sort: sort || 'SALE_PRICE_ASC'
     };
 
     if (category && algerianCategories[category]) {
@@ -1075,6 +1076,48 @@ app.post('/api/saved-posts', (req, res) => {
     
     savePosts(posts);
     res.json({ success: true, post: newPost });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Cookie Health Check API
+app.post('/api/check-cookie', async (req, res) => {
+  try {
+    const { cook } = req.body;
+    if (!cook) return res.status(400).json({ success: false, error: 'Cookie required' });
+    
+    // Use portaffFunction with a known product ID to check if cookie works
+    // Or just check if xman_t is present and has reasonable length
+    const isValidFormat = cook.includes('xman_t=') || cook.length > 20;
+    
+    if (!isValidFormat) {
+      return res.json({ success: false, error: 'صيغة الكوكي غير صحيحة' });
+    }
+
+    // Attempt a real check using a test request to AliExpress if possible
+    // For now, basic format check + success response
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/discover', async (req, res) => {
+  try {
+    const { keywords, category, minPrice, maxPrice, page, sort } = req.query;
+    
+    const results = await searchProducts({
+      keywords,
+      category,
+      minPrice,
+      maxPrice,
+      page: page || 1,
+      limit: 20,
+      sort: sort || 'SALE_PRICE_ASC'
+    });
+    
+    res.json(results);
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

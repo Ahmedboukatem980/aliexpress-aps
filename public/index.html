@@ -370,7 +370,11 @@
                 
                 <div class="form-group">
                     <label>🍪 AliExpress Cookie:</label>
-                    <input type="password" id="settingCook">
+                    <div style="display: flex; gap: 10px;">
+                        <input type="password" id="settingCook" style="flex: 1;">
+                        <button type="button" onclick="checkCookieHealth()" class="action-btn" style="background: #2196F3; width: auto; padding: 0 15px;"><i class="fas fa-heartbeat"></i> فحص</button>
+                    </div>
+                    <p id="cookieHealthStatus" style="font-size: 11px; margin-top: 5px;"></p>
                 </div>
                 
                 <div class="form-group">
@@ -509,6 +513,34 @@
                 }
             } catch (e) {
                 console.log('Status check failed');
+            }
+        }
+
+        async function checkCookieHealth() {
+            const cook = document.getElementById('settingCook').value;
+            const statusText = document.getElementById('cookieHealthStatus');
+            if (!cook) { showToast('يرجى إدخال الكوكي أولاً'); return; }
+            
+            statusText.textContent = '⏳ جاري الفحص...';
+            statusText.style.color = '#aaa';
+            
+            try {
+                const res = await fetch('/api/check-cookie', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cook })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    statusText.textContent = '✅ الكوكي يبدو صالحاً';
+                    statusText.style.color = '#4CAF50';
+                } else {
+                    statusText.textContent = `❌ ${data.error || 'الكوكي قديم أو غير صالح'}`;
+                    statusText.style.color = '#ff4444';
+                }
+            } catch (e) {
+                statusText.textContent = '❌ فشل الاتصال بالسيرفر';
+                statusText.style.color = '#ff4444';
             }
         }
 

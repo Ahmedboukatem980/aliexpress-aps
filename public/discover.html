@@ -448,6 +448,16 @@
         <div class="filter-card">
             <div class="filter-title"><i class="fas fa-filter"></i> تصفية البحث</div>
             
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; font-size: 13px; margin-bottom: 8px; color: #888;">الترتيب حسب:</label>
+                <select id="sortSelect" style="width: 100%; padding: 12px; background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 10px; color: #fff; font-family: 'Cairo';">
+                    <option value="SALE_PRICE_ASC">الأقل سعراً</option>
+                    <option value="SALE_PRICE_DESC">الأعلى سعراً</option>
+                    <option value="LASTEST_VOLUME_DESC">الأكثر مبيعاً</option>
+                    <option value="EVALUATE_RATE_DESC">الأعلى تقييماً</option>
+                </select>
+            </div>
+
             <div class="categories-grid">
                 <button class="category-btn" data-category="electronics">
                     <i class="fas fa-mobile-alt"></i>
@@ -587,6 +597,7 @@
             const maxPrice = document.getElementById('maxPrice').value || '50';
             const keywords = document.getElementById('keywordsInput').value;
             const useAI = document.getElementById('useAI').checked;
+            const sort = document.getElementById('sortSelect').value;
             
             document.getElementById('emptyState').style.display = 'none';
             document.getElementById('results').classList.remove('show');
@@ -603,7 +614,8 @@
                         minPrice: minPrice,
                         maxPrice: maxPrice,
                         limit: '15',
-                        useAI: useAI
+                        useAI: useAI,
+                        sort: sort
                     })
                 });
                 
