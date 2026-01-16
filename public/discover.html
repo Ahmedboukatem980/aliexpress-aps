@@ -8,36 +8,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        :root {
-            --bg-color: #0f0f1a;
-            --text-color: #fff;
-            --card-bg: #16213e;
-            --input-bg: #1a1a2e;
-            --header-gradient: linear-gradient(135deg, #9C27B0, #7B1FA2);
-            --border-color: rgba(255,255,255,0.05);
-            --shadow-color: rgba(156, 39, 176, 0.3);
-        }
-
-        [data-theme="light"] {
-            --bg-color: #f0f2f5;
-            --text-color: #1a1a1a;
-            --card-bg: #ffffff;
-            --input-bg: #f8f9fa;
-            --header-gradient: linear-gradient(135deg, #9C27B0, #673AB7);
-            --border-color: rgba(0,0,0,0.05);
-            --shadow-color: rgba(0,0,0,0.1);
-        }
-
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Cairo', sans-serif; background: var(--bg-color); min-height: 100vh; color: var(--text-color); overflow-x: hidden; transition: background 0.3s, color 0.3s; }
+        body { font-family: 'Cairo', sans-serif; background: #0f0f1a; min-height: 100vh; color: #fff; overflow-x: hidden; }
         
         .header { 
-            background: var(--header-gradient); 
+            background: linear-gradient(135deg, #9C27B0, #7B1FA2); 
             padding: 70px 20px 60px; 
             border-radius: 0 0 40px 40px; 
             text-align: center; 
             position: relative; 
-            box-shadow: 0 10px 30px var(--shadow-color);
+            box-shadow: 0 10px 30px rgba(156, 39, 176, 0.3);
         }
         .header h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
         .header p { opacity: 0.9; font-size: 14px; }
@@ -53,7 +33,7 @@
             align-items: center;
         }
 
-        .back-btn, .theme-toggle-btn { 
+        .back-btn { 
             background: rgba(255,255,255,0.2); border: none; 
             border-radius: 12px; width: 42px; height: 42px; 
             color: #fff; font-size: 18px; cursor: pointer;
@@ -64,15 +44,32 @@
         .content { padding: 20px; margin-top: -30px; position: relative; z-index: 10; }
         
         .filter-card {
-            background: var(--card-bg);
+            background: #16213e;
             border-radius: 20px;
             padding: 20px;
             margin-bottom: 20px;
-            border: 1px solid var(--border-color);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .filter-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #9C27B0;
+        }
+        
+        .categories-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
         }
         
         .category-btn {
-            background: var(--input-bg);
+            background: #1a1a2e;
             border: 2px solid transparent;
             border-radius: 12px;
             padding: 12px 8px;
@@ -84,45 +81,165 @@
             transition: all 0.2s;
             text-align: center;
         }
+        .category-btn:hover { border-color: #9C27B0; color: #fff; }
+        .category-btn.active { background: #9C27B0; border-color: #9C27B0; color: #fff; }
+        .category-btn i { display: block; font-size: 20px; margin-bottom: 5px; }
         
+        .price-range {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
         .price-input {
             flex: 1;
-            background: var(--input-bg);
-            border: 1px solid var(--border-color);
+            background: #1a1a2e;
+            border: 1px solid #2d2d44;
             border-radius: 10px;
             padding: 10px 12px;
-            color: var(--text-color);
+            color: #fff;
             font-family: 'Cairo', sans-serif;
             font-size: 14px;
             text-align: center;
         }
+        .price-input::placeholder { color: #666; }
+        
+        .ai-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(135deg, rgba(156, 39, 176, 0.1), rgba(103, 58, 183, 0.1));
+            border: 1px solid rgba(156, 39, 176, 0.3);
+            border-radius: 12px;
+            padding: 12px 15px;
+            margin-bottom: 15px;
+        }
+        .ai-toggle label { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .ai-toggle label i { color: #9C27B0; }
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+        }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #2d2d44;
+            border-radius: 26px;
+            transition: 0.3s;
+        }
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+        .toggle-switch input:checked + .toggle-slider { background: #9C27B0; }
+        .toggle-switch input:checked + .toggle-slider:before { transform: translateX(24px); }
+        
+        .search-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #9C27B0, #673AB7);
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-family: 'Cairo', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .search-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .ai-suggest-btn {
+            background: linear-gradient(135deg, #673AB7, #512DA8);
+            border: none;
+            border-radius: 10px;
+            padding: 10px 15px;
+            color: #fff;
+            font-family: 'Cairo', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
         
         .keywords-input {
             width: 100%;
-            background: var(--input-bg);
-            border: 1px solid var(--border-color);
+            background: #1a1a2e;
+            border: 1px solid #2d2d44;
             border-radius: 10px;
             padding: 12px 15px;
-            color: var(--text-color);
+            color: #fff;
             font-family: 'Cairo', sans-serif;
             font-size: 14px;
             margin-bottom: 10px;
             direction: ltr;
         }
-
+        .keywords-input::placeholder { color: #666; }
+        
+        .suggested-keywords {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .keyword-tag {
+            background: rgba(156, 39, 176, 0.2);
+            border: 1px solid rgba(156, 39, 176, 0.4);
+            border-radius: 20px;
+            padding: 5px 12px;
+            font-size: 12px;
+            color: #CE93D8;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .keyword-tag:hover { background: #9C27B0; color: #fff; }
+        
+        .section-title { 
+            font-size: 18px; 
+            font-weight: 700; 
+            margin: 25px 0 15px; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+        }
+        .section-title span { color: #9C27B0; }
+        
+        .loading { text-align: center; padding: 40px; display: none; }
+        .loading.show { display: block; }
+        .loading i { font-size: 40px; color: #9C27B0; animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        
+        .results { display: none; }
+        .results.show { display: block; }
+        
+        .products-grid {
+            display: grid;
+            gap: 15px;
+        }
+        
         .product-card {
-            background: var(--card-bg);
+            background: #16213e;
             border-radius: 16px;
             overflow: hidden;
-            border: 1px solid var(--border-color);
+            border: 1px solid rgba(255,255,255,0.05);
             display: flex;
             gap: 12px;
             padding: 12px;
-        }
-
-        .modal-content { 
-            background: var(--card-bg); width: 100%; max-width: 400px; border-radius: 20px; 
-            padding: 25px; border: 1px solid var(--border-color); 
         }
         .product-card.ai-ranked {
             border-color: rgba(156, 39, 176, 0.5);
@@ -321,10 +438,7 @@
     <div class="header">
         <div class="top-actions">
             <a href="/" class="back-btn"><i class="fas fa-arrow-right"></i></a>
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <button class="theme-toggle-btn" onclick="toggleTheme()"><i class="fas fa-moon"></i></button>
-                <div id="cookieStatusDot" title="حالة الكوكي" style="width: 12px; height: 12px; border-radius: 50%; background: #666; cursor: pointer; border: 2px solid rgba(255,255,255,0.2);"></div>
-            </div>
+            <div></div>
         </div>
         <h1><i class="fas fa-magic"></i> اكتشف المنتجات الرابحة</h1>
         <p>ابحث بذكاء عن أفضل الصفقات للسوق الجزائري</p>
@@ -334,16 +448,6 @@
         <div class="filter-card">
             <div class="filter-title"><i class="fas fa-filter"></i> تصفية البحث</div>
             
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; font-size: 13px; margin-bottom: 8px; color: #888;">الترتيب حسب:</label>
-                <select id="sortSelect" style="width: 100%; padding: 12px; background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 10px; color: #fff; font-family: 'Cairo';">
-                    <option value="SALE_PRICE_ASC">الأقل سعراً</option>
-                    <option value="SALE_PRICE_DESC">الأعلى سعراً</option>
-                    <option value="LASTEST_VOLUME_DESC">الأكثر مبيعاً</option>
-                    <option value="EVALUATE_RATE_DESC">الأعلى تقييماً</option>
-                </select>
-            </div>
-
             <div class="categories-grid">
                 <button class="category-btn" data-category="electronics">
                     <i class="fas fa-mobile-alt"></i>
@@ -410,12 +514,6 @@
         
         <div class="results" id="results">
             <div class="section-title">
-                <i class="fas fa-bolt" style="color: #FFD700;"></i>
-                عروض جزائرية حارّة 🔥 (Hot Drops)
-            </div>
-            <div class="products-grid" id="hotDropsGrid" style="margin-bottom: 30px;"></div>
-
-            <div class="section-title">
                 <i class="fas fa-fire" style="color: #FF6B35;"></i>
                 <span id="resultsCount">0</span> منتج مقترح
             </div>
@@ -436,30 +534,6 @@
     <div class="toast" id="toast"></div>
 
     <script>
-        // Theme logic
-        function toggleTheme() {
-            const html = document.documentElement;
-            const currentTheme = html.getAttribute('data-theme');
-            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-            html.setAttribute('data-theme', newTheme);
-            localStorage.setItem('appTheme', newTheme);
-            updateThemeIcon(newTheme);
-        }
-
-        function updateThemeIcon(theme) {
-            const icon = document.querySelector('.theme-toggle-btn i');
-            if (icon) {
-                icon.className = theme === 'light' ? 'fas fa-sun' : 'fas fa-moon';
-            }
-        }
-
-        // Initialize theme on load
-        (function() {
-            const savedTheme = localStorage.getItem('appTheme') || 'dark';
-            document.documentElement.setAttribute('data-theme', savedTheme);
-            window.addEventListener('DOMContentLoaded', () => updateThemeIcon(savedTheme));
-        })();
-
         let selectedCategory = null;
         let currentProducts = [];
         
@@ -472,75 +546,40 @@
         });
         
         document.getElementById('suggestKeywordsBtn').addEventListener('click', async function() {
-            // ... (rest of the code)
-        });
-
-        async function updateCookieStatus() {
-            const statusDot = document.getElementById('cookieStatusDot');
-            const settings = JSON.parse(localStorage.getItem('appSettings') || '{}');
-            const cook = settings.cook;
-            if (!cook) {
-                if(statusDot) statusDot.style.background = '#666';
+            if (!selectedCategory) {
+                showToast('اختر فئة أولاً');
                 return;
             }
+            
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الاقتراح...';
+            
             try {
-                const res = await fetch('/api/check-cookie', {
+                const response = await fetch('/api/ai-suggest-keywords', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cook })
+                    body: JSON.stringify({ category: selectedCategory })
                 });
-                const data = await res.json();
-                if (data.success) {
-                    if(statusDot) {
-                        statusDot.style.background = '#4CAF50';
-                        statusDot.style.boxShadow = '0 0 10px #4CAF50';
-                    }
-                } else {
-                    if(statusDot) {
-                        statusDot.style.background = '#ff4444';
-                        statusDot.style.boxShadow = '0 0 10px #ff4444';
-                    }
+                
+                const data = await response.json();
+                
+                if (data.success && data.keywords) {
+                    const container = document.getElementById('suggestedKeywords');
+                    container.innerHTML = data.keywords.map(kw => 
+                        `<span class="keyword-tag" onclick="useKeyword('${kw}')">${kw}</span>`
+                    ).join('');
                 }
-            } catch (e) {
-                if(statusDot) statusDot.style.background = '#ff4444';
+            } catch (error) {
+                showToast('فشل اقتراح الكلمات');
             }
-        }
-        updateCookieStatus();
-        setInterval(updateCookieStatus, 600000); // Check every 10 mins
+            
+            this.disabled = false;
+            this.innerHTML = '<i class="fas fa-lightbulb"></i> اقترح كلمات بحث ذكية';
+        });
         
-        async function loadHotDrops() {
-            const grid = document.getElementById('hotDropsGrid');
-            grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i></div>';
-            try {
-                const res = await fetch('/api/hot-drops-dz');
-                const data = await res.json();
-                if (data.success && data.products) {
-                    grid.innerHTML = data.products.slice(0, 6).map(p => `
-                        <div class="product-card" style="border-color: #FFD700;">
-                            <div class="product-image-container">
-                                <img src="${p.image_url}" class="product-image">
-                                <div class="product-discount-badge">Hot!</div>
-                            </div>
-                            <div class="product-info">
-                                <div class="product-title">${p.title}</div>
-                                <div class="product-price-row">
-                                    <span class="product-price">${p.price} ${p.currency}</span>
-                                </div>
-                                <div class="product-actions">
-                                    <button class="action-btn use-btn" onclick="useProduct('${p.id}')">استخدم</button>
-                                </div>
-                            </div>
-                        </div>
-                    `).join('');
-                } else {
-                    grid.innerHTML = '';
-                }
-            } catch (e) { grid.innerHTML = ''; }
-        }
-        loadHotDrops();
-        
-        function useProduct(id) {
-            window.location.href = `/?url=https://www.aliexpress.com/item/${id}.html`;
+        function useKeyword(keyword) {
+            const input = document.getElementById('keywordsInput');
+            input.value = keyword;
         }
         
         document.getElementById('searchBtn').addEventListener('click', async function() {
@@ -548,7 +587,6 @@
             const maxPrice = document.getElementById('maxPrice').value || '50';
             const keywords = document.getElementById('keywordsInput').value;
             const useAI = document.getElementById('useAI').checked;
-            const sort = document.getElementById('sortSelect').value;
             
             document.getElementById('emptyState').style.display = 'none';
             document.getElementById('results').classList.remove('show');
@@ -565,8 +603,7 @@
                         minPrice: minPrice,
                         maxPrice: maxPrice,
                         limit: '15',
-                        useAI: useAI,
-                        sort: sort
+                        useAI: useAI
                     })
                 });
                 

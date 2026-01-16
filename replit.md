@@ -53,12 +53,6 @@ npm start
   - One-click republish to Telegram
   - Edit saved posts before republishing
   - Posts stored in `saved_posts.json` (gitignored)
-- **Bulk Image Search** - Extract and select from all product images
-  - Extracts images from main gallery, variants, and description
-  - Interactive gallery modal for image selection
-  - Click "تصفح الصور" button on product card to open gallery
-  - Selected image is used for framing and publishing
-  - Supports up to 30 images per product
 
 ## Product Metadata Extraction
 The app uses multiple fallback methods to extract product title and image:
