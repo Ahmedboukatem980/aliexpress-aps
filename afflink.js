@@ -240,33 +240,54 @@ async function fetchLinkPreview(productId) {
             const jsonPatterns = [
                 /window\.runParams\s*=\s*(\{.+?\});/s,
                 /_expDataLayer\.push\((\{.+?\})\);/s,
-                /data:\s*(\{.+?\}),\s*serverTime/s
+                /data:\s*(\{.+?\}),\s*serverTime/s,
+                /window\.detailData\s*=\s*(\{.+?\});/s,
+                /window\.__INITIAL_STATE__\s*=\s*(\{.+?\});/s
             ];
 
             for (const pattern of jsonPatterns) {
                 const match = html.match(pattern);
                 if (match) {
                     try {
-                        const jsonData = JSON.parse(match[1]);
+                        let jsonStr = match[1];
+                        // Handle potential trailing characters if the regex was too greedy
+                        if (jsonStr.lastIndexOf('}') !== jsonStr.length - 1) {
+                            jsonStr = jsonStr.substring(0, jsonStr.lastIndexOf('}') + 1);
+                        }
+                        const jsonData = JSON.parse(jsonStr);
+                        
                         // Extract from common structures
-                        const itemDetail = jsonData.productInfoComponent || jsonData.data?.productInfoComponent;
+                        const itemDetail = jsonData.productInfoComponent || 
+                                         jsonData.data?.productInfoComponent ||
+                                         jsonData.item ||
+                                         jsonData.product ||
+                                         (jsonData.widgets && jsonData.widgets.find(w => w.name === 'product-info'));
+
                         if (itemDetail) {
                             return {
-                                title: itemDetail.subject || title,
-                                image_url: itemDetail.mainImage || null,
-                                price: itemDetail.price || "راجع الرابط"
+                                title: itemDetail.subject || itemDetail.title || title,
+                                image_url: itemDetail.mainImage || itemDetail.image || (itemDetail.images && itemDetail.images[0]) || null,
+                                price: itemDetail.price || (itemDetail.priceList && itemDetail.priceList[0]?.amount?.value) || "راجع الرابط"
                             };
                         }
                     } catch (e) {}
                 }
             }
 
+            // Fallback for meta tags if JSON parsing failed
+            const metaTitle = html.match(/<meta property="og:title" content="([^"]+)"/i);
+            const metaImage = html.match(/<meta property="og:image" content="([^"]+)"/i);
+            
+            if (metaTitle && metaTitle[1]) {
+                title = metaTitle[1].replace(/ - AliExpress.*$/i, '').trim();
+            }
+
             if (title && title.length > 5 && !title.includes('AliExpress')) {
                 console.log("Preview fetched via scraping - Title:", title.substring(0, 50));
                 return {
                     title: title,
-                    image_url: image_url || null,
-                    price: price || "راجع الرابط"
+                    image_url: (metaImage ? metaImage[1] : null),
+                    price: "راجع الرابط"
                 };
             }
         } catch (err) {
