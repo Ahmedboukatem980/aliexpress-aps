@@ -295,6 +295,30 @@ async function fetchLinkPreview(productId) {
         }
     }
     
+    // Fourth option: linkpreview.xyz API fallback
+    try {
+        console.log("Trying linkpreview.xyz API fallback...");
+        const lpUrl = "https://linkpreview.xyz/api/get-meta-tags";
+        const lpRes = await got(lpUrl, {
+            searchParams: {
+                url: `https://vi.aliexpress.com/item/${productId}.html`
+            },
+            responseType: "json",
+            timeout: { request: 15000 }
+        });
+
+        if (lpRes.body && (lpRes.body.title || lpRes.body.image)) {
+            console.log("✅ Product fetched via linkpreview.xyz");
+            return {
+                title: lpRes.body.title || `منتج AliExpress #${productId}`,
+                image_url: lpRes.body.image || null,
+                price: "راجع الرابط"
+            };
+        }
+    } catch (err) {
+        console.error("❌ linkpreview.xyz error:", err.message);
+    }
+
     console.log("All methods failed, using fallback");
     return {
         title: `منتج AliExpress #${productId}`,
