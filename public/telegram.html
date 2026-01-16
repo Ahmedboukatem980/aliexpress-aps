@@ -11,25 +11,38 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --text-color: #fff;
+            --card-bg: #16213e;
+            --header-gradient: linear-gradient(135deg, #0088cc, #0077b5);
+            --border-color: #2d2d44;
+            --accent-color: #0088cc;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f0f2f5;
+            --text-color: #1a1a1a;
+            --card-bg: #ffffff;
+            --header-gradient: linear-gradient(135deg, #0088cc, #03a9f4);
+            --border-color: #e1e4e8;
+            --accent-color: #0088cc;
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Cairo', sans-serif; background: #1a1a2e; min-height: 100vh; color: #fff; }
-        .header { background: linear-gradient(135deg, #0088cc, #0077b5); padding: 60px 20px 40px; border-radius: 0 0 30px 30px; text-align: center; position: relative; }
+        body { font-family: 'Cairo', sans-serif; background: var(--bg-color); min-height: 100vh; color: var(--text-color); transition: background 0.3s, color 0.3s; }
+        .header { background: var(--header-gradient); padding: 60px 20px 40px; border-radius: 0 0 30px 30px; text-align: center; position: relative; }
         .header h1 { font-size: 28px; font-weight: 700; margin-bottom: 5px; }
         .header p { opacity: 0.9; font-size: 14px; }
-        .back-btn { position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.2); border: none; border-radius: 50%; width: 40px; height: 40px; color: #fff; font-size: 18px; cursor: pointer; text-decoration: none; display: flex; align-items: center; justify-content: center; }
+        .back-btn, .theme-toggle-btn { position: absolute; top: 20px; background: rgba(255,255,255,0.2); border: none; border-radius: 50%; width: 40px; height: 40px; color: #fff; font-size: 18px; cursor: pointer; text-decoration: none; display: flex; align-items: center; justify-content: center; }
+        .back-btn { right: 20px; }
+        .theme-toggle-btn { left: 20px; }
+
         .content { padding: 30px 20px; max-width: 600px; margin: 0 auto; }
-        .form-group { margin-bottom: 20px; }
-        .form-group label { display: block; margin-bottom: 8px; color: #0088cc; font-size: 14px; font-weight: 600; }
-        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 15px; border-radius: 10px; border: 2px solid #2d2d44; background: #16213e; color: #fff; font-family: 'Cairo', sans-serif; font-size: 14px; direction: rtl; transition: border-color 0.3s; }
-        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #0088cc; }
-        .form-group textarea { min-height: 120px; resize: vertical; }
-        .form-hint { font-size: 11px; color: #666; margin-top: 5px; }
-        .section-title { font-size: 18px; font-weight: 700; margin: 30px 0 15px; color: #0088cc; display: flex; align-items: center; gap: 10px; }
-        .section-title i { font-size: 20px; }
-        .publish-btn { width: 100%; padding: 18px; background: linear-gradient(135deg, #0088cc, #0077b5); border: none; border-radius: 12px; color: #fff; font-family: 'Cairo', sans-serif; font-size: 18px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 30px; transition: transform 0.2s, box-shadow 0.2s; }
-        .publish-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0, 136, 204, 0.3); }
-        .publish-btn:disabled { background: #555; opacity: 0.7; transform: none; box-shadow: none; }
-        .preview-card { background: #16213e; border-radius: 15px; padding: 20px; margin-top: 20px; border: 2px dashed #2d2d44; }
+        .form-group label { display: block; margin-bottom: 8px; color: var(--accent-color); font-size: 14px; font-weight: 600; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 15px; border-radius: 10px; border: 2px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-family: 'Cairo', sans-serif; font-size: 14px; direction: rtl; transition: border-color 0.3s; }
+        .section-title { font-size: 18px; font-weight: 700; margin: 30px 0 15px; color: var(--accent-color); display: flex; align-items: center; gap: 10px; }
+        .preview-card { background: var(--card-bg); border-radius: 15px; padding: 20px; margin-top: 20px; border: 2px dashed var(--border-color); }
         .preview-title { color: #888; font-size: 14px; margin-bottom: 10px; text-align: center; }
         .preview-content { white-space: pre-wrap; font-size: 13px; line-height: 1.8; direction: rtl; }
         .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 15px 30px; border-radius: 25px; display: none; z-index: 2000; font-weight: 600; }
@@ -44,6 +57,7 @@
 </head>
 <body>
     <div class="header">
+        <button class="theme-toggle-btn" onclick="toggleTheme()"><i class="fas fa-moon"></i></button>
         <a href="/" class="back-btn"><i class="fas fa-arrow-right"></i></a>
         <h1><i class="fab fa-telegram"></i> نشر في Telegram</h1>
         <p>انشر العروض مباشرة في قناتك</p>
@@ -160,6 +174,30 @@
     <div class="toast" id="toast"></div>
 
     <script>
+        // Theme logic
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('appTheme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+
+        function updateThemeIcon(theme) {
+            const icon = document.querySelector('.theme-toggle-btn i');
+            if (icon) {
+                icon.className = theme === 'light' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+
+        // Initialize theme on load
+        (function() {
+            const savedTheme = localStorage.getItem('appTheme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            window.addEventListener('DOMContentLoaded', () => updateThemeIcon(savedTheme));
+        })();
+
         const defaultSettings = {
             prefix: '📢تخفيض لـ',
             salePrice: '✅السعر بعد التخفيض:',
