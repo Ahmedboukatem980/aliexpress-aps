@@ -342,22 +342,19 @@ app.post('/api/frame-image', async (req, res) => {
     const customFramePath = path.join(__dirname, 'public', 'custom_frame.jpg');
     const useFramePath = fs.existsSync(customFramePath) ? customFramePath : framePath;
     
-    // Use fixed standard dimensions for consistent look
-    const frameWidth = 1000;
-    const frameHeight = 1000;
+    const frameMetadata = await sharp(useFramePath).metadata();
+    const frameWidth = frameMetadata.width;
+    const frameHeight = frameMetadata.height;
     
-    const innerLeft = 20;
-    const innerTop = 20;
-    const innerWidth = 960;
-    const innerHeight = 850;
+    const innerLeft = Math.round(frameWidth * 0.02);
+    const innerTop = Math.round(frameHeight * 0.02);
+    const innerWidth = Math.round(frameWidth * 0.96);
+    const innerHeight = Math.round(frameHeight * 0.85);
     
     const { stickers } = req.body;
     
     const resizedProduct = await sharp(productImageBuffer)
-      .resize(innerWidth, innerHeight, { 
-        fit: 'contain', 
-        background: { r: 255, g: 255, b: 255, alpha: 1 } 
-      })
+      .resize(innerWidth, innerHeight, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } })
       .toBuffer();
     
     let composites = [{
@@ -449,7 +446,6 @@ app.post('/api/frame-image', async (req, res) => {
     }
     
     const framedImage = await sharp(useFramePath)
-      .resize(frameWidth, frameHeight)
       .composite(composites)
       .jpeg({ quality: 90 })
       .toBuffer();
