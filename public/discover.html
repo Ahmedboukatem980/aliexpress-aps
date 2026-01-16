@@ -438,7 +438,7 @@
     <div class="header">
         <div class="top-actions">
             <a href="/" class="back-btn"><i class="fas fa-arrow-right"></i></a>
-            <div></div>
+            <div id="cookieStatusDot" title="حالة الكوكي" style="width: 12px; height: 12px; border-radius: 50%; background: #666; cursor: pointer; border: 2px solid rgba(255,255,255,0.2);"></div>
         </div>
         <h1><i class="fas fa-magic"></i> اكتشف المنتجات الرابحة</h1>
         <p>ابحث بذكاء عن أفضل الصفقات للسوق الجزائري</p>
@@ -524,6 +524,12 @@
         
         <div class="results" id="results">
             <div class="section-title">
+                <i class="fas fa-bolt" style="color: #FFD700;"></i>
+                عروض جزائرية حارّة 🔥 (Hot Drops)
+            </div>
+            <div class="products-grid" id="hotDropsGrid" style="margin-bottom: 30px;"></div>
+
+            <div class="section-title">
                 <i class="fas fa-fire" style="color: #FF6B35;"></i>
                 <span id="resultsCount">0</span> منتج مقترح
             </div>
@@ -556,40 +562,75 @@
         });
         
         document.getElementById('suggestKeywordsBtn').addEventListener('click', async function() {
-            if (!selectedCategory) {
-                showToast('اختر فئة أولاً');
+            // ... (rest of the code)
+        });
+
+        async function updateCookieStatus() {
+            const statusDot = document.getElementById('cookieStatusDot');
+            const settings = JSON.parse(localStorage.getItem('appSettings') || '{}');
+            const cook = settings.cook;
+            if (!cook) {
+                if(statusDot) statusDot.style.background = '#666';
                 return;
             }
-            
-            this.disabled = true;
-            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الاقتراح...';
-            
             try {
-                const response = await fetch('/api/ai-suggest-keywords', {
+                const res = await fetch('/api/check-cookie', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ category: selectedCategory })
+                    body: JSON.stringify({ cook })
                 });
-                
-                const data = await response.json();
-                
-                if (data.success && data.keywords) {
-                    const container = document.getElementById('suggestedKeywords');
-                    container.innerHTML = data.keywords.map(kw => 
-                        `<span class="keyword-tag" onclick="useKeyword('${kw}')">${kw}</span>`
-                    ).join('');
+                const data = await res.json();
+                if (data.success) {
+                    if(statusDot) {
+                        statusDot.style.background = '#4CAF50';
+                        statusDot.style.boxShadow = '0 0 10px #4CAF50';
+                    }
+                } else {
+                    if(statusDot) {
+                        statusDot.style.background = '#ff4444';
+                        statusDot.style.boxShadow = '0 0 10px #ff4444';
+                    }
                 }
-            } catch (error) {
-                showToast('فشل اقتراح الكلمات');
+            } catch (e) {
+                if(statusDot) statusDot.style.background = '#ff4444';
             }
-            
-            this.disabled = false;
-            this.innerHTML = '<i class="fas fa-lightbulb"></i> اقترح كلمات بحث ذكية';
-        });
+        }
+        updateCookieStatus();
+        setInterval(updateCookieStatus, 600000); // Check every 10 mins
         
-        function useKeyword(keyword) {
-            const input = document.getElementById('keywordsInput');
-            input.value = keyword;
+        async function loadHotDrops() {
+            const grid = document.getElementById('hotDropsGrid');
+            grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i></div>';
+            try {
+                const res = await fetch('/api/hot-drops-dz');
+                const data = await res.json();
+                if (data.success && data.products) {
+                    grid.innerHTML = data.products.slice(0, 6).map(p => `
+                        <div class="product-card" style="border-color: #FFD700;">
+                            <div class="product-image-container">
+                                <img src="${p.image_url}" class="product-image">
+                                <div class="product-discount-badge">Hot!</div>
+                            </div>
+                            <div class="product-info">
+                                <div class="product-title">${p.title}</div>
+                                <div class="product-price-row">
+                                    <span class="product-price">${p.price} ${p.currency}</span>
+                                </div>
+                                <div class="product-actions">
+                                    <button class="action-btn use-btn" onclick="useProduct('${p.id}')">استخدم</button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    grid.innerHTML = '';
+                }
+            } catch (e) { grid.innerHTML = ''; }
+        }
+        loadHotDrops();
+        
+        function useProduct(id) {
+            window.location.href = `/?url=https://www.aliexpress.com/item/${id}.html`;
         }
         
         document.getElementById('searchBtn').addEventListener('click', async function() {

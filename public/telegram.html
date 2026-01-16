@@ -397,10 +397,11 @@
                     size: settings.watermarkSize || 'medium'
                 };
                 
+                const stickers = Array.from(document.querySelectorAll('input[name="sticker"]:checked')).map(el => el.value);
                 const res = await fetch('/api/frame-image', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ imageUrl: imageUrl, watermark: watermarkSettings })
+                    body: JSON.stringify({ imageUrl: imageUrl, watermark: watermarkSettings, stickers: stickers })
                 });
 
                 const result = await res.json();

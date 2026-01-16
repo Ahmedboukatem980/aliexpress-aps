@@ -351,6 +351,8 @@ app.post('/api/frame-image', async (req, res) => {
     const innerWidth = Math.round(frameWidth * 0.96);
     const innerHeight = Math.round(frameHeight * 0.85);
     
+    const { stickers } = req.body;
+    
     const resizedProduct = await sharp(productImageBuffer)
       .resize(innerWidth, innerHeight, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } })
       .toBuffer();
@@ -361,6 +363,33 @@ app.post('/api/frame-image', async (req, res) => {
       top: innerTop,
       blend: 'over'
     }];
+
+    // Add Stickers
+    if (stickers && Array.isArray(stickers)) {
+      for (const stickerType of stickers) {
+        let stickerSvg = '';
+        if (stickerType === 'coins') {
+          stickerSvg = Buffer.from(`<svg width="180" height="60" xmlns="http://www.w3.org/2000/svg">
+            <rect width="180" height="60" rx="30" fill="#FFD700" />
+            <text x="90" y="38" font-family="Arial" font-size="24" font-weight="bold" fill="#000" text-anchor="middle">💰 Coins Deal</text>
+          </svg>`);
+        } else if (stickerType === 'shipping') {
+          stickerSvg = Buffer.from(`<svg width="180" height="60" xmlns="http://www.w3.org/2000/svg">
+            <rect width="180" height="60" rx="30" fill="#4CAF50" />
+            <text x="90" y="38" font-family="Arial" font-size="22" font-weight="bold" fill="#fff" text-anchor="middle">🚚 Fast Ship</text>
+          </svg>`);
+        }
+
+        if (stickerSvg) {
+          composites.push({
+            input: stickerSvg,
+            left: stickerType === 'coins' ? 40 : frameWidth - 220,
+            top: frameHeight - 120,
+            blend: 'over'
+          });
+        }
+      }
+    }
     
     // Add logo watermark if exists
     const logoPath = path.join(__dirname, 'public', 'watermark_logo.png');
@@ -1123,7 +1152,25 @@ app.get('/api/discover', async (req, res) => {
   }
 });
 
-// Delete a saved post
+// Algerian Hot Drops (Mock data based on top trending categories for DZ)
+app.get('/api/hot-drops-dz', async (req, res) => {
+  try {
+    const trendingKeywords = ['smartwatch', 'wireless earbuds', 'power bank', 'trimmer', 'fashion bags', 'sneakers'];
+    const randomKeyword = trendingKeywords[Math.floor(Math.random() * trendingKeywords.length)];
+    
+    const result = await searchHotProducts({
+      keywords: randomKeyword,
+      limit: 15,
+      minPrice: 1,
+      maxPrice: 30
+    });
+    
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.delete('/api/saved-posts/:id', (req, res) => {
   try {
     let posts = loadSavedPosts();
