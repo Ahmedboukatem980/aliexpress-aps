@@ -192,6 +192,32 @@
         .install-btn { background: #FF6B35; color: #fff; border: none; padding: 8px 20px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; }
 
         hr { border: none; border-top: 1px solid rgba(255,255,255,0.05); margin: 20px 0; }
+        
+        /* Image Gallery Styles */
+        .image-gallery-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); z-index: 5000; overflow-y: auto; padding: 15px; }
+        .image-gallery-modal.show { display: block; }
+        .gallery-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 5px 20px; position: sticky; top: 0; background: rgba(0,0,0,0.9); z-index: 10; }
+        .gallery-header h3 { color: #FF6B35; font-size: 18px; margin: 0; }
+        .gallery-close { background: #ff4444; border: none; color: #fff; width: 40px; height: 40px; border-radius: 50%; font-size: 22px; cursor: pointer; }
+        .gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding-bottom: 20px; }
+        .gallery-item { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; cursor: pointer; border: 3px solid transparent; transition: all 0.2s; }
+        .gallery-item:hover { border-color: #FF6B35; transform: scale(1.02); }
+        .gallery-item.selected { border-color: #4CAF50; box-shadow: 0 0 15px rgba(76, 175, 80, 0.5); }
+        .gallery-item img { width: 100%; height: 100%; object-fit: cover; }
+        .gallery-item .check-mark { position: absolute; top: 5px; right: 5px; background: #4CAF50; color: #fff; width: 24px; height: 24px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 14px; }
+        .gallery-item.selected .check-mark { display: flex; }
+        .gallery-loading { text-align: center; padding: 60px 20px; color: #888; }
+        .gallery-loading i { font-size: 40px; color: #FF6B35; animation: spin 1s linear infinite; display: block; margin-bottom: 15px; }
+        .gallery-empty { text-align: center; padding: 60px 20px; color: #888; }
+        .gallery-actions { position: sticky; bottom: 0; background: rgba(0,0,0,0.95); padding: 15px 0; display: flex; gap: 10px; }
+        .gallery-actions button { flex: 1; padding: 14px; border-radius: 12px; font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; border: none; }
+        .gallery-select-btn { background: #4CAF50; color: #fff; }
+        .gallery-select-btn:disabled { background: #666; cursor: not-allowed; }
+        .gallery-cancel-btn { background: transparent; border: 1px solid #666 !important; color: #888; }
+        
+        .browse-images-btn { background: #2196F3; margin-top: 10px; }
+        .selected-image-badge { position: absolute; bottom: 10px; left: 10px; background: rgba(76, 175, 80, 0.9); color: #fff; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; display: none; }
+        .product-card { position: relative; }
     </style>
 </head>
 <body>
@@ -231,6 +257,10 @@
         <div class="results" id="results">
             <div class="product-card">
                 <img class="product-image" id="productImage" src="" alt="">
+                <span class="selected-image-badge" id="selectedImageBadge"><i class="fas fa-check"></i> صورة مختارة</span>
+                <button id="browseImagesBtn" class="action-btn browse-images-btn" style="position: absolute; top: 10px; left: 10px; width: auto; padding: 8px 12px; font-size: 12px; border-radius: 20px; display: none;">
+                    <i class="fas fa-images"></i> تصفح الصور
+                </button>
                 <div style="position: relative;">
                     <div class="product-title" id="productTitle"></div>
                     <button id="refineTitleBtn" class="action-btn" style="width: 100%; margin: 10px 0; padding: 12px; background: #673AB7; font-size: 14px; display: none; justify-content: center; align-items: center; border-radius: 10px;">
@@ -442,6 +472,31 @@
 
     <div class="toast" id="toast"></div>
 
+    <!-- Image Gallery Modal -->
+    <div class="image-gallery-modal" id="imageGalleryModal">
+        <div class="gallery-header">
+            <h3><i class="fas fa-images"></i> اختر صورة المنتج</h3>
+            <button class="gallery-close" onclick="closeImageGallery()">&times;</button>
+        </div>
+        <div id="galleryContent">
+            <div class="gallery-loading" id="galleryLoading">
+                <i class="fas fa-spinner"></i>
+                <p>جاري استخراج جميع الصور...</p>
+            </div>
+            <div class="gallery-empty" id="galleryEmpty" style="display: none;">
+                <i class="fas fa-image" style="font-size: 50px; opacity: 0.3; margin-bottom: 15px;"></i>
+                <p>لم يتم العثور على صور إضافية</p>
+            </div>
+            <div class="gallery-grid" id="galleryGrid"></div>
+        </div>
+        <div class="gallery-actions" id="galleryActions" style="display: none;">
+            <button class="gallery-cancel-btn" onclick="closeImageGallery()">إلغاء</button>
+            <button class="gallery-select-btn" id="confirmImageBtn" disabled onclick="confirmImageSelection()">
+                <i class="fas fa-check"></i> استخدام هذه الصورة
+            </button>
+        </div>
+    </div>
+
     <script>
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
@@ -549,6 +604,123 @@
             document.documentElement.setAttribute('data-theme', savedTheme);
             window.addEventListener('DOMContentLoaded', () => updateThemeIcon(savedTheme));
         })();
+
+        // ========== Image Gallery System ==========
+        let galleryImages = [];
+        let selectedGalleryImage = null;
+        let currentProductUrl = '';
+
+        function openImageGallery() {
+            // Guard: ensure we have a product URL
+            if (!currentProductUrl) {
+                showToast('يرجى البحث عن منتج أولاً');
+                return;
+            }
+            
+            const modal = document.getElementById('imageGalleryModal');
+            const loading = document.getElementById('galleryLoading');
+            const empty = document.getElementById('galleryEmpty');
+            const grid = document.getElementById('galleryGrid');
+            const actions = document.getElementById('galleryActions');
+            
+            modal.classList.add('show');
+            loading.style.display = 'block';
+            empty.style.display = 'none';
+            grid.innerHTML = '';
+            actions.style.display = 'none';
+            selectedGalleryImage = null;
+            
+            fetchProductImages();
+        }
+
+        function closeImageGallery() {
+            document.getElementById('imageGalleryModal').classList.remove('show');
+        }
+
+        async function fetchProductImages() {
+            const loading = document.getElementById('galleryLoading');
+            const empty = document.getElementById('galleryEmpty');
+            const grid = document.getElementById('galleryGrid');
+            const actions = document.getElementById('galleryActions');
+            
+            try {
+                const response = await fetch('/api/extract-images', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: currentProductUrl })
+                });
+                
+                const result = await response.json();
+                loading.style.display = 'none';
+                
+                if (result.success && result.images && result.images.length > 0) {
+                    galleryImages = result.images;
+                    renderGalleryImages();
+                    actions.style.display = 'flex';
+                } else {
+                    empty.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error fetching images:', error);
+                loading.style.display = 'none';
+                empty.style.display = 'block';
+                empty.querySelector('p').textContent = 'خطأ في استخراج الصور';
+            }
+        }
+
+        function renderGalleryImages() {
+            const grid = document.getElementById('galleryGrid');
+            grid.innerHTML = '';
+            
+            galleryImages.forEach((imgUrl, index) => {
+                const item = document.createElement('div');
+                item.className = 'gallery-item';
+                item.innerHTML = `
+                    <img src="${imgUrl}" alt="صورة ${index + 1}" loading="lazy" onerror="this.parentElement.style.display='none'">
+                    <div class="check-mark"><i class="fas fa-check"></i></div>
+                `;
+                item.onclick = () => selectGalleryImage(item, imgUrl);
+                grid.appendChild(item);
+            });
+        }
+
+        function selectGalleryImage(element, imgUrl) {
+            // Remove previous selection
+            document.querySelectorAll('.gallery-item.selected').forEach(el => el.classList.remove('selected'));
+            
+            // Select new image
+            element.classList.add('selected');
+            selectedGalleryImage = imgUrl;
+            
+            // Enable confirm button
+            document.getElementById('confirmImageBtn').disabled = false;
+        }
+
+        function confirmImageSelection() {
+            if (selectedGalleryImage) {
+                // Update product image
+                const productImage = document.getElementById('productImage');
+                productImage.src = selectedGalleryImage;
+                
+                // Store as current image for framing
+                window.currentSelectedImage = selectedGalleryImage;
+                
+                // Show badge
+                document.getElementById('selectedImageBadge').style.display = 'block';
+                
+                showToast('تم اختيار الصورة بنجاح ✅');
+                closeImageGallery();
+            }
+        }
+
+        // Setup browse images button click
+        document.addEventListener('DOMContentLoaded', function() {
+            const browseBtn = document.getElementById('browseImagesBtn');
+            if (browseBtn) {
+                browseBtn.onclick = openImageGallery;
+            }
+        });
+        // ========== End Image Gallery System ==========
 
         async function checkGeminiStatus() {
             try {
@@ -697,11 +869,15 @@
         async function search() {
             const url = urlInput.value.trim();
             if (!url) return showError('الرجاء إدخال الرابط');
+            currentProductUrl = url; // Store for image gallery
             errorMsg.classList.remove('show');
             results.classList.remove('show');
             emptyState.style.display = 'none';
             loading.classList.add('show');
             searchBtn.disabled = true;
+            // Reset image selection state
+            document.getElementById('selectedImageBadge').style.display = 'none';
+            window.currentSelectedImage = null;
             try {
                 const response = await fetch('/api/affiliate', {
                     method: 'POST',
@@ -712,6 +888,7 @@
                 if (data.success) {
                     showResults(data.data);
                     document.getElementById('refineTitleBtn').style.display = 'flex';
+                    document.getElementById('browseImagesBtn').style.display = 'flex'; // Show browse images button
                 }
                 else showError(data.error || 'حدث خطأ');
             } catch (err) { showError('فشل الاتصال'); }
@@ -779,7 +956,9 @@
         }
 
         function openTelePage(link) {
-            const params = new URLSearchParams({ title: currentProductData.title, image: currentProductData.image, price: currentProductData.price, link }).toString();
+            // Use selected image from gallery if available, otherwise use default
+            const imageToUse = window.currentSelectedImage || currentProductData.image;
+            const params = new URLSearchParams({ title: currentProductData.title, image: imageToUse, price: currentProductData.price, link }).toString();
             window.open('/telegram.html?' + params, '_blank');
         }
 
@@ -789,6 +968,8 @@
 
         publishBtn.onclick = async () => {
             const link = linkSelect.value;
+            // Use selected image from gallery if available, otherwise use default
+            const imageToUse = window.currentSelectedImage || currentProductData.image;
             publishBtn.disabled = true;
             try {
                 const res = await fetch('/api/publish-telegram', {
@@ -799,7 +980,7 @@
                         price: currentProductData.price,
                         link: link,
                         coupon: couponInput.value.trim() || null,
-                        image: currentProductData.image,
+                        image: imageToUse,
                         settings: settings,
                         credentials: { telegramToken: settings.telegramToken, channelId: settings.channelId, channelId2: settings.channelId2, channelChoice: document.getElementById('channelSelect').value }
                     })

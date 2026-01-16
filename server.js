@@ -10,6 +10,8 @@ const sharp = require('sharp');
 const https = require('https');
 const http = require('http');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const got = require('got');
+const cheerio = require('cheerio');
 
 const app = express();
 const postScheduler = new PostScheduler();
@@ -642,6 +644,161 @@ app.post('/api/schedule-post', (req, res) => {
     res.json({ success: true, post });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Bulk Image Search - Extract all product images from AliExpress
+app.post('/api/extract-images', async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ success: false, error: 'يرجى إرسال رابط المنتج' });
+    
+    // Extract product ID from URL
+    const productIdMatch = url.match(/\/(\d{10,})/);
+    if (!productIdMatch) {
+      return res.status(400).json({ success: false, error: 'رابط غير صالح' });
+    }
+    const productId = productIdMatch[1];
+    
+    const images = {
+      main: [],
+      variants: [],
+      description: [],
+      reviews: []
+    };
+    
+    const userAgents = [
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    ];
+    
+    const domains = ['ar.aliexpress.com', 'www.aliexpress.com', 'aliexpress.com'];
+    
+    // Try to fetch product page and extract images
+    for (const domain of domains) {
+      try {
+        const productUrl = `https://${domain}/item/${productId}.html`;
+        const response = await got(productUrl, {
+          headers: {
+            'User-Agent': userAgents[Math.floor(Math.random() * userAgents.length)],
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'ar,en;q=0.9',
+            'Cache-Control': 'no-cache'
+          },
+          timeout: { request: 15000 },
+          followRedirect: true
+        });
+        
+        const html = response.body;
+        
+        // Method 1: Extract from window.runParams JSON
+        const runParamsMatch = html.match(/window\.runParams\s*=\s*(\{[\s\S]*?\});?\s*(?:var|let|const|<\/script>)/);
+        if (runParamsMatch) {
+          try {
+            const jsonStr = runParamsMatch[1]
+              .replace(/\n/g, '')
+              .replace(/\r/g, '')
+              .replace(/,\s*}/g, '}')
+              .replace(/,\s*]/g, ']');
+            const data = JSON.parse(jsonStr);
+            
+            // Extract images from data structure
+            if (data.data?.imageModule?.imagePathList) {
+              images.main.push(...data.data.imageModule.imagePathList);
+            }
+            if (data.data?.skuModule?.skuPriceList) {
+              data.data.skuModule.skuPriceList.forEach(sku => {
+                if (sku.skuAttr) {
+                  const imgMatch = sku.skuAttr.match(/https?:\/\/[^\s"']+\.(jpg|png|webp)/gi);
+                  if (imgMatch) images.variants.push(...imgMatch);
+                }
+              });
+            }
+            if (data.data?.descriptionModule?.descriptionUrl) {
+              // Fetch description page for more images
+              try {
+                const descResp = await got(data.data.descriptionModule.descriptionUrl, { timeout: { request: 8000 } });
+                const descImgs = descResp.body.match(/https?:\/\/[^"'\s]+\.(jpg|png|webp)/gi) || [];
+                images.description.push(...descImgs.filter(img => img.includes('ae0') || img.includes('cbu')));
+              } catch (e) { }
+            }
+          } catch (e) { }
+        }
+        
+        // Method 2: Extract from data-imgs and image elements
+        const $ = cheerio.load(html);
+        $('img[src*="ae01"], img[src*="cbu01"], img[data-src*="ae01"], img[data-src*="cbu01"]').each((i, el) => {
+          const src = $(el).attr('src') || $(el).attr('data-src');
+          if (src && src.includes('.jpg') || src && src.includes('.png') || src && src.includes('.webp')) {
+            if (!images.main.includes(src)) images.main.push(src);
+          }
+        });
+        
+        // Extract from gallery thumbnails
+        $('[class*="thumbnail"] img, [class*="gallery"] img, [class*="slider"] img').each((i, el) => {
+          const src = $(el).attr('src') || $(el).attr('data-src');
+          if (src && (src.includes('ae0') || src.includes('cbu'))) {
+            if (!images.main.includes(src)) images.main.push(src);
+          }
+        });
+        
+        // Method 3: Extract from inline scripts
+        const imgRegex = /https?:\/\/(?:ae01|cbu01)\.alicdn\.com\/[^"'\s\\]+\.(jpg|png|webp)/gi;
+        const allMatches = html.match(imgRegex) || [];
+        allMatches.forEach(img => {
+          const cleanImg = img.replace(/\\u002F/g, '/').replace(/\\/g, '');
+          if (!images.main.includes(cleanImg)) images.main.push(cleanImg);
+        });
+        
+        if (images.main.length > 0) break;
+        
+      } catch (err) {
+        console.log(`Failed to fetch from ${domain}:`, err.message);
+        continue;
+      }
+    }
+    
+    // Deduplicate and clean URLs
+    const cleanUrl = (url) => {
+      return url
+        .replace(/\\u002F/g, '/')
+        .replace(/\\/g, '')
+        .replace(/_\d+x\d+\./, '_960x960.')  // Get higher resolution
+        .replace(/\.jpg_\d+x\d+/, '.jpg')
+        .trim();
+    };
+    
+    const uniqueImages = [...new Set([
+      ...images.main.map(cleanUrl),
+      ...images.variants.map(cleanUrl),
+      ...images.description.map(cleanUrl)
+    ])].filter(img => 
+      img && 
+      (img.includes('ae0') || img.includes('cbu')) &&
+      !img.includes('_50x50') &&
+      !img.includes('_100x100')
+    );
+    
+    // Sort by quality (prefer larger images)
+    uniqueImages.sort((a, b) => {
+      const aHigh = a.includes('960') || a.includes('800') ? 1 : 0;
+      const bHigh = b.includes('960') || b.includes('800') ? 1 : 0;
+      return bHigh - aHigh;
+    });
+    
+    if (uniqueImages.length === 0) {
+      return res.status(404).json({ success: false, error: 'لم يتم العثور على صور' });
+    }
+    
+    res.json({ 
+      success: true, 
+      images: uniqueImages.slice(0, 30), // Limit to 30 images
+      total: uniqueImages.length
+    });
+    
+  } catch (error) {
+    console.error('Extract images error:', error);
+    res.status(500).json({ success: false, error: 'فشل في استخراج الصور' });
   }
 });
 
