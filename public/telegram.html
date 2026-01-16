@@ -83,18 +83,6 @@
                     <input type="file" id="imageUpload" accept="image/*" style="display: none;">
                 </label>
             </div>
-            <div class="form-group">
-                <label>ملصقات ترويجية على الصورة:</label>
-                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                    <label style="flex: 1; display: flex; align-items: center; gap: 5px; background: #1a1a2e; padding: 10px; border-radius: 10px; cursor: pointer; font-size: 12px;">
-                        <input type="checkbox" name="sticker" value="coins"> 💰 Coins
-                    </label>
-                    <label style="flex: 1; display: flex; align-items: center; gap: 5px; background: #1a1a2e; padding: 10px; border-radius: 10px; cursor: pointer; font-size: 12px;">
-                        <input type="checkbox" name="sticker" value="shipping"> 🚚 Fast
-                    </label>
-                </div>
-            </div>
-            
             <div style="display: flex; gap: 10px; margin-top: 10px;">
                 <button type="button" class="frame-btn" id="frameBtn" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #FF9800, #F57C00); border: none; border-radius: 10px; color: #fff; font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
                     <i class="fas fa-image"></i> إطار + لوقو
@@ -409,11 +397,10 @@
                     size: settings.watermarkSize || 'medium'
                 };
                 
-                const stickers = Array.from(document.querySelectorAll('input[name="sticker"]:checked')).map(el => el.value);
                 const res = await fetch('/api/frame-image', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ imageUrl: imageUrl, watermark: watermarkSettings, stickers: stickers })
+                    body: JSON.stringify({ imageUrl: imageUrl, watermark: watermarkSettings })
                 });
 
                 const result = await res.json();
