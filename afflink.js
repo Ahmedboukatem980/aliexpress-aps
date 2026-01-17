@@ -166,22 +166,7 @@ async function idCatcher(input) {
 
 
 async function fetchLinkPreview(productId) {
-    // 1. linkpreview.xyz API
-    try {
-        console.log("Trying linkpreview.xyz API...");
-        const lpRes = await got("https://linkpreview.xyz/api/get-meta-tags", {
-            searchParams: { url: `https://www.aliexpress.com/item/${productId}.html` },
-            responseType: "json",
-            timeout: { request: 15000 }
-        });
-        if (lpRes.body && (lpRes.body.title || lpRes.body.image)) {
-            console.log("✅ Product fetched via linkpreview.xyz");
-            let title = (lpRes.body.title || `منتج AliExpress #${productId}`).replace(/ - AliExpress.*$/i, '').replace(/\|.*$/i, '').replace('AliExpress', '').trim();
-            return { title, image_url: lpRes.body.image || null, price: "راجع الرابط", fetch_method: "linkpreview.xyz" };
-        }
-    } catch (err) { console.log("linkpreview.xyz failed:", err.message); }
-
-    // 2. microlink.io API
+    // 1. microlink.io API
     try {
         console.log("Trying microlink.io API...");
         const apiRes = await got('https://api.microlink.io', {
@@ -198,6 +183,21 @@ async function fetchLinkPreview(productId) {
             }
         }
     } catch (err) { console.log("microlink.io failed:", err.message); }
+
+    // 2. linkpreview.xyz API
+    try {
+        console.log("Trying linkpreview.xyz API...");
+        const lpRes = await got("https://linkpreview.xyz/api/get-meta-tags", {
+            searchParams: { url: `https://www.aliexpress.com/item/${productId}.html` },
+            responseType: "json",
+            timeout: { request: 15000 }
+        });
+        if (lpRes.body && (lpRes.body.title || lpRes.body.image)) {
+            console.log("✅ Product fetched via linkpreview.xyz");
+            let title = (lpRes.body.title || `منتج AliExpress #${productId}`).replace(/ - AliExpress.*$/i, '').replace(/\|.*$/i, '').replace('AliExpress', '').trim();
+            return { title, image_url: lpRes.body.image || null, price: "راجع الرابط", fetch_method: "linkpreview.xyz" };
+        }
+    } catch (err) { console.log("linkpreview.xyz failed:", err.message); }
 
     // 3. API (AliExpress API)
     try {
