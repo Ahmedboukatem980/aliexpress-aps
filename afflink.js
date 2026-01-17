@@ -177,10 +177,21 @@ async function fetchLinkPreview(productId) {
         const data = apiRes.body;
         if (data.status === 'success' && data.data) {
             let title = (data.data.title || '').replace(/ - AliExpress.*$/i, '').replace(/\s*-\s*AliExpress\s*\d*$/i, '').trim();
-            if (title.length > 10 && !title.includes('AliExpress') && !title.includes('Smarter Shopping')) {
+            const imageUrl = data.data.image?.url || null;
+            
+            // Stronger validation: ensure title is not just an ID or generic string
+            const isInvalidTitle = !title || 
+                                 title.length < 15 || 
+                                 title.includes('AliExpress') || 
+                                 title.includes('Smarter Shopping') ||
+                                 title.startsWith('html.') || 
+                                 title.match(/^\d+$/);
+
+            if (!isInvalidTitle && imageUrl) {
                 console.log("✅ Product fetched via microlink.io");
-                return { title, image_url: data.data.image?.url || null, price: "راجع الرابط", fetch_method: "microlink.io" };
+                return { title, image_url: imageUrl, price: "راجع الرابط", fetch_method: "microlink.io" };
             }
+            console.log("⚠️ microlink.io title/image validation failed, trying next method...");
         }
     } catch (err) { console.log("microlink.io failed:", err.message); }
 
@@ -193,9 +204,18 @@ async function fetchLinkPreview(productId) {
             timeout: { request: 15000 }
         });
         if (lpRes.body && (lpRes.body.title || lpRes.body.image)) {
-            console.log("✅ Product fetched via linkpreview.xyz");
-            let title = (lpRes.body.title || `منتج AliExpress #${productId}`).replace(/ - AliExpress.*$/i, '').replace(/\|.*$/i, '').replace('AliExpress', '').trim();
-            return { title, image_url: lpRes.body.image || null, price: "راجع الرابط", fetch_method: "linkpreview.xyz" };
+            let title = (lpRes.body.title || '').replace(/ - AliExpress.*$/i, '').replace(/\|.*$/i, '').replace('AliExpress', '').trim();
+            
+            const isInvalidTitle = !title || 
+                                 title.length < 15 || 
+                                 title.startsWith('html.') || 
+                                 title.match(/^\d+$/);
+
+            if (!isInvalidTitle && lpRes.body.image) {
+                console.log("✅ Product fetched via linkpreview.xyz");
+                return { title, image_url: lpRes.body.image || null, price: "راجع الرابط", fetch_method: "linkpreview.xyz" };
+            }
+            console.log("⚠️ linkpreview.xyz title/image validation failed, trying next method...");
         }
     } catch (err) { console.log("linkpreview.xyz failed:", err.message); }
 
