@@ -158,7 +158,30 @@ async function fetchLinkPreview(productId) {
             };
         }
     } catch (apiErr) {
-        console.log("API fetch failed, falling back to scraping:", apiErr.message);
+        console.log("API fetch failed, falling back to other methods:", apiErr.message);
+    }
+
+    // New option: LinkPreview.xyz API (as used in the bot)
+    try {
+        console.log("Trying LinkPreview.xyz API...");
+        const res = await got("https://linkpreview.xyz/api/get-meta-tags", {
+            searchParams: {
+                url: `https://vi.aliexpress.com/item/${productId}.html`
+            },
+            responseType: "json",
+            timeout: { request: 15000 }
+        });
+
+        if (res.body && (res.body.title || res.body.image)) {
+            console.log("✅ Product fetched via LinkPreview.xyz - Title:", (res.body.title || "").substring(0, 50) + "...");
+            return {
+                title: res.body.title || `منتج AliExpress #${productId}`,
+                image_url: res.body.image || null,
+                price: "راجع الرابط"
+            };
+        }
+    } catch (err) {
+        console.log("LinkPreview.xyz API failed:", err.message);
     }
 
     // Second option: External API (microlink.io) - use mobile domain for better results
