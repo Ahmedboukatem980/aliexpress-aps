@@ -165,10 +165,9 @@ async function fetchLinkPreview(productId) {
                 fetch_method: "API"
             };
         }
-        console.log("⚠️ API returned incomplete data, trying next method...");
     } catch (err) { console.log("AliExpress API failed:", err.message); }
 
-    // 2. linkpreview.xyz API with vi.aliexpress.com domain (Matches the successful bot logic)
+    // 2. linkpreview.xyz API with vi.aliexpress.com domain
     try {
         console.log("Trying linkpreview.xyz with vi.aliexpress.com...");
         const lpRes = await got("https://linkpreview.xyz/api/get-meta-tags", {
@@ -179,8 +178,8 @@ async function fetchLinkPreview(productId) {
         if (lpRes.body && (lpRes.body.title || lpRes.body.image)) {
             let title = (lpRes.body.title || '').replace(/ - AliExpress.*$/i, '').replace(/\|.*$/i, '').replace('AliExpress', '').trim();
             
+            // Check if it's a generic title or ID
             const isInvalidTitle = !title || 
-                                 title.length < 15 || 
                                  title.startsWith('html.') || 
                                  title.match(/^\d+$/);
 
@@ -205,7 +204,6 @@ async function fetchLinkPreview(productId) {
             const imageUrl = data.data.image?.url || null;
             
             const isInvalidTitle = !title || 
-                                 title.length < 15 || 
                                  title.includes('AliExpress') || 
                                  title.includes('Smarter Shopping') ||
                                  title.startsWith('html.') || 
