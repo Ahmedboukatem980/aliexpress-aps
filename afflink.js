@@ -146,6 +146,7 @@ async function fetchLinkPreview(productId) {
         if (apiResult && apiResult.title) {
             console.log("✅ Product fetched via API - Title:", apiResult.title.substring(0, 50) + "...");
             return {
+                method: "AliExpress API",
                 title: apiResult.title,
                 image_url: apiResult.image_url,
                 price: apiResult.sale_price || apiResult.price || "غير متوفر",
@@ -175,6 +176,7 @@ async function fetchLinkPreview(productId) {
         if (res.body && (res.body.title || res.body.image)) {
             console.log("✅ Product fetched via LinkPreview.xyz - Title:", (res.body.title || "").substring(0, 50) + "...");
             return {
+                method: "LinkPreview.xyz",
                 title: res.body.title || `منتج AliExpress #${productId}`,
                 image_url: res.body.image || null,
                 price: "راجع الرابط"
@@ -213,6 +215,7 @@ async function fetchLinkPreview(productId) {
             if (isValidTitle) {
                 console.log("✅ Product fetched via microlink.io - Title:", title.substring(0, 50) + "...");
                 return {
+                    method: "Microlink API",
                     title: title,
                     image_url: imageUrl,
                     price: "راجع الرابط"
@@ -288,6 +291,7 @@ async function fetchLinkPreview(productId) {
 
                         if (itemDetail) {
                             return {
+                                method: "Web Scraping (JSON)",
                                 title: itemDetail.subject || itemDetail.title || title,
                                 image_url: itemDetail.mainImage || itemDetail.image || (itemDetail.images && itemDetail.images[0]) || null,
                                 price: itemDetail.price || (itemDetail.priceList && itemDetail.priceList[0]?.amount?.value) || "راجع الرابط"
@@ -308,6 +312,7 @@ async function fetchLinkPreview(productId) {
             if (title && title.length > 5 && !title.includes('AliExpress')) {
                 console.log("Preview fetched via scraping - Title:", title.substring(0, 50));
                 return {
+                    method: "Web Scraping (Meta Tags)",
                     title: title,
                     image_url: (metaImage ? metaImage[1] : null),
                     price: "راجع الرابط"
@@ -320,6 +325,7 @@ async function fetchLinkPreview(productId) {
     
     console.log("All methods failed, using fallback");
     return {
+        method: "Fallback (Default)",
         title: `منتج AliExpress #${productId}`,
         image_url: null,
         price: "راجع الرابط"
