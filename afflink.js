@@ -245,8 +245,13 @@ async function fetchLinkPreview(productId) {
     const urlsToTry = [`https://www.aliexpress.com/item/${productId}.html`, `https://ar.aliexpress.com/item/${productId}.html` ];
     for (const productUrl of urlsToTry) {
         try {
+            console.log(`Trying scraping on ${productUrl}...`);
             const res = await got(productUrl, {
-                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+                headers: { 
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9,ar;q=0.8'
+                },
                 timeout: { request: 20000 },
                 followRedirect: true
             });
@@ -257,7 +262,13 @@ async function fetchLinkPreview(productId) {
             const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
             if (titleMatch) title = titleMatch[1].replace(/ - AliExpress.*$/i, '').replace(/\|.*$/i, '').trim();
 
-            const jsonPatterns = [/window\.runParams\s*=\s*(\{.+?\});/s, /window\.detailData\s*=\s*(\{.+?\});/s];
+            // Try to find image in meta tags first as it's more reliable
+            let image_url = null;
+            const metaImageMatch = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i) || 
+                                 html.match(/<meta\s+name=["']twitter:image["']\s+content=["']([^"']+)["']/i);
+            if (metaImageMatch) image_url = metaImageMatch[1];
+
+            const jsonPatterns = [/window\.runParams\s*=\s*(\{.+?\});/s, /window\.detailData\s*=\s*(\{.+?\});/s, /data:\s*(\{.+?\}),\s*common/s];
             for (const pattern of jsonPatterns) {
                 const match = html.match(pattern);
                 if (match) {
@@ -265,20 +276,30 @@ async function fetchLinkPreview(productId) {
                         let jsonStr = match[1];
                         if (jsonStr.lastIndexOf('}') !== jsonStr.length - 1) jsonStr = jsonStr.substring(0, jsonStr.lastIndexOf('}') + 1);
                         const jsonData = JSON.parse(jsonStr);
-                        const itemDetail = jsonData.productInfoComponent || jsonData.data?.productInfoComponent || jsonData.item;
-                        if (itemDetail) return {
-                            title: itemDetail.subject || itemDetail.title || title,
-                            image_url: itemDetail.mainImage || itemDetail.image || null,
-                            price: itemDetail.price || "راجع الرابط",
-                            fetch_method: "Preview fetched via scraping"
-                        };
+                        const itemDetail = jsonData.productInfoComponent || jsonData.data?.productInfoComponent || jsonData.item || jsonData.productConfig;
+                        if (itemDetail) {
+                            console.log("✅ Product fetched via scraping (JSON)");
+                            return {
+                                title: itemDetail.subject || itemDetail.title || title,
+                                image_url: itemDetail.mainImage || itemDetail.image || image_url,
+                                price: itemDetail.price || "راجع الرابط",
+                                fetch_method: "Scraping (JSON)"
+                            };
+                        }
                     } catch (e) {}
                 }
             }
-        } catch (err) {}
+
+            if (title && image_url) {
+                console.log("✅ Product fetched via scraping (Meta Tags)");
+                return { title, image_url, price: "راجع الرابط", fetch_method: "Scraping (Meta)" };
+            }
+        } catch (err) {
+            console.log(`Scraping attempt failed for ${productUrl}:`, err.message);
+        }
     }
     
-    return { title: `منتج AliExpress #${productId}`, image_url: null, price: "راجع الرابط", fetch_method: "None" };
+    return { title: `منتج AliExpress #${productId}`, image_url: null, price: "راجع الرابط", fetch_method: "None (Final Fallback)" };
 }
 
 
