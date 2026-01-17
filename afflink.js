@@ -26,7 +26,8 @@ async function getFinalRedirect(url, maxRedirects = 10) {
         }
     }
 
-    for (let i = 0; i < maxRedirects; i++) {
+    // Follow up to 2 redirects as seen in the successful bot logic, but keep our more robust loop for safety
+    for (let i = 0; i < 2; i++) {
         try {
             const response = await got(currentUrl, {
                 followRedirect: false,
@@ -43,19 +44,9 @@ async function getFinalRedirect(url, maxRedirects = 10) {
                     const urlObj = new URL(currentUrl);
                     nextUrl = `${urlObj.protocol}//${urlObj.host}${nextUrl}`;
                 }
-                
-                if (nextUrl.includes('productIds=') || nextUrl.includes('/item/')) {
-                    bestUrl = nextUrl;
-                }
-                
-                if (nextUrl.includes('/error/') || nextUrl.includes('404')) {
-                    console.log("Stopping at 404, using best URL:", bestUrl);
-                    return bestUrl;
-                }
-                
                 currentUrl = nextUrl;
             } else {
-                return currentUrl;
+                break;
             }
         } catch (err) {
             if (err.response && err.response.headers && err.response.headers.location) {
@@ -64,20 +55,9 @@ async function getFinalRedirect(url, maxRedirects = 10) {
                     const urlObj = new URL(currentUrl);
                     nextUrl = `${urlObj.protocol}//${urlObj.host}${nextUrl}`;
                 }
-                
-                if (nextUrl.includes('productIds=') || nextUrl.includes('/item/')) {
-                    bestUrl = nextUrl;
-                }
-                
-                if (nextUrl.includes('/error/') || nextUrl.includes('404')) {
-                    console.log("Stopping at 404, using best URL:", bestUrl);
-                    return bestUrl;
-                }
-                
                 currentUrl = nextUrl;
             } else {
-                console.error("❌ Redirect error:", err.message);
-                return bestUrl !== url ? bestUrl : currentUrl;
+                break;
             }
         }
     }
@@ -188,40 +168,11 @@ async function fetchLinkPreview(productId) {
         console.log("⚠️ API returned incomplete data, trying next method...");
     } catch (err) { console.log("AliExpress API failed:", err.message); }
 
-    // 2. microlink.io API
+    // 2. linkpreview.xyz API with vi.aliexpress.com domain (Matches the successful bot logic)
     try {
-        console.log("Trying microlink.io API...");
-        const apiRes = await got('https://api.microlink.io', {
-            searchParams: { url: `https://m.aliexpress.com/item/${productId}.html` },
-            responseType: 'json',
-            timeout: { request: 20000 }
-        });
-        const data = apiRes.body;
-        if (data.status === 'success' && data.data) {
-            let title = (data.data.title || '').replace(/ - AliExpress.*$/i, '').replace(/\s*-\s*AliExpress\s*\d*$/i, '').trim();
-            const imageUrl = data.data.image?.url || null;
-            
-            // Stronger validation: ensure title is not just an ID or generic string
-            const isInvalidTitle = !title || 
-                                 title.length < 15 || 
-                                 title.includes('AliExpress') || 
-                                 title.includes('Smarter Shopping') ||
-                                 title.startsWith('html.') || 
-                                 title.match(/^\d+$/);
-
-            if (!isInvalidTitle && imageUrl) {
-                console.log("✅ Product fetched via microlink.io");
-                return { title, image_url: imageUrl, price: "راجع الرابط", fetch_method: "microlink.io" };
-            }
-            console.log("⚠️ microlink.io title/image validation failed, trying next method...");
-        }
-    } catch (err) { console.log("microlink.io failed:", err.message); }
-
-    // 3. linkpreview.xyz API
-    try {
-        console.log("Trying linkpreview.xyz API...");
+        console.log("Trying linkpreview.xyz with vi.aliexpress.com...");
         const lpRes = await got("https://linkpreview.xyz/api/get-meta-tags", {
-            searchParams: { url: `https://www.aliexpress.com/item/${productId}.html` },
+            searchParams: { url: `https://vi.aliexpress.com/item/${productId}.html` },
             responseType: "json",
             timeout: { request: 15000 }
         });
@@ -234,12 +185,38 @@ async function fetchLinkPreview(productId) {
                                  title.match(/^\d+$/);
 
             if (!isInvalidTitle && lpRes.body.image) {
-                console.log("✅ Product fetched via linkpreview.xyz");
-                return { title, image_url: lpRes.body.image || null, price: "راجع الرابط", fetch_method: "linkpreview.xyz" };
+                console.log("✅ Product fetched via linkpreview.xyz (vi domain)");
+                return { title, image_url: lpRes.body.image || null, price: "راجع الرابط", fetch_method: "linkpreview.xyz (vi)" };
             }
-            console.log("⚠️ linkpreview.xyz title/image validation failed, trying next method...");
         }
-    } catch (err) { console.log("linkpreview.xyz failed:", err.message); }
+    } catch (err) { console.log("linkpreview.xyz (vi) failed:", err.message); }
+
+    // 3. microlink.io API
+    try {
+        console.log("Trying microlink.io API...");
+        const apiRes = await got('https://api.microlink.io', {
+            searchParams: { url: `https://m.aliexpress.com/item/${productId}.html` },
+            responseType: 'json',
+            timeout: { request: 20000 }
+        });
+        const data = apiRes.body;
+        if (data.status === 'success' && data.data) {
+            let title = (data.data.title || '').replace(/ - AliExpress.*$/i, '').replace(/\s*-\s*AliExpress\s*\d*$/i, '').trim();
+            const imageUrl = data.data.image?.url || null;
+            
+            const isInvalidTitle = !title || 
+                                 title.length < 15 || 
+                                 title.includes('AliExpress') || 
+                                 title.includes('Smarter Shopping') ||
+                                 title.startsWith('html.') || 
+                                 title.match(/^\d+$/);
+
+            if (!isInvalidTitle && imageUrl) {
+                console.log("✅ Product fetched via microlink.io");
+                return { title, image_url: imageUrl, price: "راجع الرابط", fetch_method: "microlink.io" };
+            }
+        }
+    } catch (err) { console.log("microlink.io failed:", err.message); }
 
     // 4. Preview fetched via scraping
     const urlsToTry = [`https://www.aliexpress.com/item/${productId}.html`, `https://ar.aliexpress.com/item/${productId}.html` ];
