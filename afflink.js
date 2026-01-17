@@ -166,7 +166,29 @@ async function idCatcher(input) {
 
 
 async function fetchLinkPreview(productId) {
-    // 1. microlink.io API
+    // 1. API (AliExpress API)
+    try {
+        console.log("Trying AliExpress API...");
+        const apiResult = await getProductDetails(productId);
+        if (apiResult && apiResult.title && apiResult.image_url) {
+            console.log("✅ Product fetched via AliExpress API");
+            return {
+                title: apiResult.title,
+                image_url: apiResult.image_url,
+                price: apiResult.sale_price || apiResult.price || "غير متوفر",
+                original_price: apiResult.original_price,
+                discount: apiResult.discount,
+                currency: apiResult.currency,
+                shop_name: apiResult.shop_name,
+                rating: apiResult.rating,
+                orders: apiResult.orders,
+                fetch_method: "API"
+            };
+        }
+        console.log("⚠️ API returned incomplete data, trying next method...");
+    } catch (err) { console.log("AliExpress API failed:", err.message); }
+
+    // 2. microlink.io API
     try {
         console.log("Trying microlink.io API...");
         const apiRes = await got('https://api.microlink.io', {
@@ -195,7 +217,7 @@ async function fetchLinkPreview(productId) {
         }
     } catch (err) { console.log("microlink.io failed:", err.message); }
 
-    // 2. linkpreview.xyz API
+    // 3. linkpreview.xyz API
     try {
         console.log("Trying linkpreview.xyz API...");
         const lpRes = await got("https://linkpreview.xyz/api/get-meta-tags", {
@@ -218,27 +240,6 @@ async function fetchLinkPreview(productId) {
             console.log("⚠️ linkpreview.xyz title/image validation failed, trying next method...");
         }
     } catch (err) { console.log("linkpreview.xyz failed:", err.message); }
-
-    // 3. API (AliExpress API)
-    try {
-        console.log("Trying AliExpress API...");
-        const apiResult = await getProductDetails(productId);
-        if (apiResult && apiResult.title) {
-            console.log("✅ Product fetched via AliExpress API");
-            return {
-                title: apiResult.title,
-                image_url: apiResult.image_url,
-                price: apiResult.sale_price || apiResult.price || "غير متوفر",
-                original_price: apiResult.original_price,
-                discount: apiResult.discount,
-                currency: apiResult.currency,
-                shop_name: apiResult.shop_name,
-                rating: apiResult.rating,
-                orders: apiResult.orders,
-                fetch_method: "API"
-            };
-        }
-    } catch (err) { console.log("AliExpress API failed:", err.message); }
 
     // 4. Preview fetched via scraping
     const urlsToTry = [`https://www.aliexpress.com/item/${productId}.html`, `https://ar.aliexpress.com/item/${productId}.html` ];
