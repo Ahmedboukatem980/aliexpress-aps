@@ -418,8 +418,11 @@ async function portaffFunction(cookie, ids) {
 
     const promoResults = await Promise.all(promoRequests);
 
+    console.log("Cookie used for generation:", cookieStr.substring(0, 20) + "...");
+
     for (const pr of promoResults) {
         if (pr.data && typeof pr.data === 'object') {
+            console.log(`Generated ${pr.type} link:`, pr.data.promotionUrl ? "Success" : "Failed/Empty");
             result.aff[pr.type] = pr.data.promotionUrl || pr.data.couponUrl || pr.data.url || null;
         } else if (typeof pr.data === 'string') {
             result.aff[pr.type] = pr.data;
