@@ -3,31 +3,42 @@ const { URL } = require("url");
 const { getProductDetails } = require('./aliexpress-api');
 
 
-async function getFinalRedirect(url, maxRedirects = 15) {
+async function getFinalRedirect(url, maxRedirects = 10) {
     let currentUrl = url;
     let bestUrl = url;
     
-    const headers = {
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'ar-SA,ar;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
-    };
+    // Specific handling for s.click.aliexpress.com which often uses meta-refresh or JS redirects
+    if (url.includes('s.click.aliexpress.com')) {
+        try {
+            const response = await got(url, {
+                followRedirect: true,
+                https: { rejectUnauthorized: false },
+                timeout: { request: 15000 },
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8'
+                }
+            });
+            currentUrl = response.url;
+            bestUrl = currentUrl;
+        } catch (err) {
+            console.error("❌ Initial redirect error:", err.message);
+        }
+    }
 
     for (let i = 0; i < maxRedirects; i++) {
         try {
-            console.log(`Redirect hop ${i+1}: ${currentUrl}`);
             const response = await got(currentUrl, {
                 followRedirect: false,
                 https: { rejectUnauthorized: false },
                 timeout: { request: 10000 },
-                headers: headers
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
             });
 
-            const location = response.headers.location;
-            if (location) {
-                let nextUrl = location;
+            if (response.headers.location) {
+                let nextUrl = response.headers.location;
                 if (nextUrl.startsWith('/')) {
                     const urlObj = new URL(currentUrl);
                     nextUrl = `${urlObj.protocol}//${urlObj.host}${nextUrl}`;
@@ -38,23 +49,12 @@ async function getFinalRedirect(url, maxRedirects = 15) {
                 }
                 
                 if (nextUrl.includes('/error/') || nextUrl.includes('404')) {
+                    console.log("Stopping at 404, using best URL:", bestUrl);
                     return bestUrl;
                 }
                 
                 currentUrl = nextUrl;
             } else {
-                // If no location header, check for meta refresh or JS redirect in body
-                const html = response.body;
-                const metaMatch = html.match(/meta\s+http-equiv=["']refresh["']\s+content=["']\d+;\s*url=([^"']+)["']/i);
-                if (metaMatch) {
-                    let nextUrl = metaMatch[1];
-                    if (nextUrl.startsWith('/')) {
-                        const urlObj = new URL(currentUrl);
-                        nextUrl = `${urlObj.protocol}//${urlObj.host}${nextUrl}`;
-                    }
-                    currentUrl = nextUrl;
-                    continue;
-                }
                 return currentUrl;
             }
         } catch (err) {
@@ -64,12 +64,24 @@ async function getFinalRedirect(url, maxRedirects = 15) {
                     const urlObj = new URL(currentUrl);
                     nextUrl = `${urlObj.protocol}//${urlObj.host}${nextUrl}`;
                 }
+                
+                if (nextUrl.includes('productIds=') || nextUrl.includes('/item/')) {
+                    bestUrl = nextUrl;
+                }
+                
+                if (nextUrl.includes('/error/') || nextUrl.includes('404')) {
+                    console.log("Stopping at 404, using best URL:", bestUrl);
+                    return bestUrl;
+                }
+                
                 currentUrl = nextUrl;
             } else {
+                console.error("❌ Redirect error:", err.message);
                 return bestUrl !== url ? bestUrl : currentUrl;
             }
         }
     }
+    
     return currentUrl;
 }
 
@@ -154,34 +166,6 @@ async function idCatcher(input) {
 
 
 async function fetchLinkPreview(productId) {
-    // 0. Primary Scraping with custom URL (Often bypasses some API/Scraper blocks)
-    const mobileUrl = `https://m.aliexpress.com/item/${productId}.html`;
-    try {
-        console.log(`Trying primary scraping on ${mobileUrl}...`);
-        const res = await got(mobileUrl, {
-            headers: { 
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                'Accept-Language': 'ar-SA,ar;q=0.9,en-US;q=0.8,en;q=0.7'
-            },
-            timeout: { request: 15000 },
-            followRedirect: true
-        });
-        const html = res.body;
-        
-        // Extract meta tags first (highest success rate for mobile)
-        const metaTitleMatch = html.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i);
-        const metaImageMatch = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i);
-        
-        if (metaTitleMatch && metaImageMatch) {
-            let title = metaTitleMatch[1].replace(/ - AliExpress.*$/i, '').trim();
-            if (title.length > 5 && !title.startsWith('html.')) {
-                console.log("✅ Product fetched via Primary Scraping (Meta Tags)");
-                return { title, image_url: metaImageMatch[1], price: "راجع الرابط", fetch_method: "Primary Scraping" };
-            }
-        }
-    } catch (err) { console.log("Primary Scraping failed:", err.message); }
-
     // 1. API (AliExpress API)
     try {
         console.log("Trying AliExpress API...");
@@ -261,13 +245,8 @@ async function fetchLinkPreview(productId) {
     const urlsToTry = [`https://www.aliexpress.com/item/${productId}.html`, `https://ar.aliexpress.com/item/${productId}.html` ];
     for (const productUrl of urlsToTry) {
         try {
-            console.log(`Trying scraping on ${productUrl}...`);
             const res = await got(productUrl, {
-                headers: { 
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.9,ar;q=0.8'
-                },
+                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
                 timeout: { request: 20000 },
                 followRedirect: true
             });
@@ -278,32 +257,7 @@ async function fetchLinkPreview(productId) {
             const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
             if (titleMatch) title = titleMatch[1].replace(/ - AliExpress.*$/i, '').replace(/\|.*$/i, '').trim();
 
-            // Try to find image in meta tags first as it's more reliable
-            let image_url = null;
-            const metaImageMatch = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i) || 
-                                 html.match(/<meta\s+name=["']twitter:image["']\s+content=["']([^"']+)["']/i);
-            if (metaImageMatch) image_url = metaImageMatch[1];
-
-            // If scraping fails, try a third-party service specifically for metadata
-            if (!title || !image_url) {
-                console.log("Scraping metadata failed, trying LinkPreview API...");
-                try {
-                    const lpRes = await got(`https://api.linkpreview.net/?key=YOUR_API_KEY&q=${encodeURIComponent(productUrl)}`, {
-                        responseType: 'json',
-                        timeout: { request: 10000 }
-                    });
-                    if (lpRes.body && lpRes.body.title) {
-                        return {
-                            title: lpRes.body.title.replace(/ - AliExpress.*$/i, '').trim(),
-                            image_url: lpRes.body.image,
-                            price: "راجع الرابط",
-                            fetch_method: "LinkPreview API"
-                        };
-                    }
-                } catch (e) {}
-            }
-
-            const jsonPatterns = [/window\.runParams\s*=\s*(\{.+?\});/s, /window\.detailData\s*=\s*(\{.+?\});/s, /data:\s*(\{.+?\}),\s*common/s];
+            const jsonPatterns = [/window\.runParams\s*=\s*(\{.+?\});/s, /window\.detailData\s*=\s*(\{.+?\});/s];
             for (const pattern of jsonPatterns) {
                 const match = html.match(pattern);
                 if (match) {
@@ -311,30 +265,20 @@ async function fetchLinkPreview(productId) {
                         let jsonStr = match[1];
                         if (jsonStr.lastIndexOf('}') !== jsonStr.length - 1) jsonStr = jsonStr.substring(0, jsonStr.lastIndexOf('}') + 1);
                         const jsonData = JSON.parse(jsonStr);
-                        const itemDetail = jsonData.productInfoComponent || jsonData.data?.productInfoComponent || jsonData.item || jsonData.productConfig;
-                        if (itemDetail) {
-                            console.log("✅ Product fetched via scraping (JSON)");
-                            return {
-                                title: itemDetail.subject || itemDetail.title || title,
-                                image_url: itemDetail.mainImage || itemDetail.image || image_url,
-                                price: itemDetail.price || "راجع الرابط",
-                                fetch_method: "Scraping (JSON)"
-                            };
-                        }
+                        const itemDetail = jsonData.productInfoComponent || jsonData.data?.productInfoComponent || jsonData.item;
+                        if (itemDetail) return {
+                            title: itemDetail.subject || itemDetail.title || title,
+                            image_url: itemDetail.mainImage || itemDetail.image || null,
+                            price: itemDetail.price || "راجع الرابط",
+                            fetch_method: "Preview fetched via scraping"
+                        };
                     } catch (e) {}
                 }
             }
-
-            if (title && image_url) {
-                console.log("✅ Product fetched via scraping (Meta Tags)");
-                return { title, image_url, price: "راجع الرابط", fetch_method: "Scraping (Meta)" };
-            }
-        } catch (err) {
-            console.log(`Scraping attempt failed for ${productUrl}:`, err.message);
-        }
+        } catch (err) {}
     }
     
-    return { title: `منتج AliExpress #${productId}`, image_url: null, price: "راجع الرابط", fetch_method: "None (Final Fallback)" };
+    return { title: `منتج AliExpress #${productId}`, image_url: null, price: "راجع الرابط", fetch_method: "None" };
 }
 
 
