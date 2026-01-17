@@ -332,7 +332,7 @@ async function fetchLinkPreview(productId) {
         const lpUrl = "https://linkpreview.xyz/api/get-meta-tags";
         const lpRes = await got(lpUrl, {
             searchParams: {
-                url: `https://vi.aliexpress.com/item/${productId}.html`
+                url: `https://www.aliexpress.com/item/${productId}.html`
             },
             responseType: "json",
             timeout: { request: 15000 }
@@ -340,8 +340,13 @@ async function fetchLinkPreview(productId) {
 
         if (lpRes.body && (lpRes.body.title || lpRes.body.image)) {
             console.log("✅ Product fetched via linkpreview.xyz");
+            
+            let title = lpRes.body.title || `منتج AliExpress #${productId}`;
+            // Clean title
+            title = title.replace(/ - AliExpress.*$/i, '').replace(/\|.*$/i, '').replace('AliExpress', '').trim();
+            
             return {
-                title: lpRes.body.title || `منتج AliExpress #${productId}`,
+                title: title,
                 image_url: lpRes.body.image || null,
                 price: "راجع الرابط",
                 fetch_method: "LinkPreview API"
