@@ -3,42 +3,31 @@ const { URL } = require("url");
 const { getProductDetails } = require('./aliexpress-api');
 
 
-async function getFinalRedirect(url, maxRedirects = 10) {
+async function getFinalRedirect(url, maxRedirects = 15) {
     let currentUrl = url;
     let bestUrl = url;
     
-    // Specific handling for s.click.aliexpress.com which often uses meta-refresh or JS redirects
-    if (url.includes('s.click.aliexpress.com')) {
-        try {
-            const response = await got(url, {
-                followRedirect: true,
-                https: { rejectUnauthorized: false },
-                timeout: { request: 15000 },
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8'
-                }
-            });
-            currentUrl = response.url;
-            bestUrl = currentUrl;
-        } catch (err) {
-            console.error("❌ Initial redirect error:", err.message);
-        }
-    }
+    const headers = {
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'ar-SA,ar;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+    };
 
     for (let i = 0; i < maxRedirects; i++) {
         try {
+            console.log(`Redirect hop ${i+1}: ${currentUrl}`);
             const response = await got(currentUrl, {
                 followRedirect: false,
                 https: { rejectUnauthorized: false },
                 timeout: { request: 10000 },
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                }
+                headers: headers
             });
 
-            if (response.headers.location) {
-                let nextUrl = response.headers.location;
+            const location = response.headers.location;
+            if (location) {
+                let nextUrl = location;
                 if (nextUrl.startsWith('/')) {
                     const urlObj = new URL(currentUrl);
                     nextUrl = `${urlObj.protocol}//${urlObj.host}${nextUrl}`;
@@ -49,12 +38,23 @@ async function getFinalRedirect(url, maxRedirects = 10) {
                 }
                 
                 if (nextUrl.includes('/error/') || nextUrl.includes('404')) {
-                    console.log("Stopping at 404, using best URL:", bestUrl);
                     return bestUrl;
                 }
                 
                 currentUrl = nextUrl;
             } else {
+                // If no location header, check for meta refresh or JS redirect in body
+                const html = response.body;
+                const metaMatch = html.match(/meta\s+http-equiv=["']refresh["']\s+content=["']\d+;\s*url=([^"']+)["']/i);
+                if (metaMatch) {
+                    let nextUrl = metaMatch[1];
+                    if (nextUrl.startsWith('/')) {
+                        const urlObj = new URL(currentUrl);
+                        nextUrl = `${urlObj.protocol}//${urlObj.host}${nextUrl}`;
+                    }
+                    currentUrl = nextUrl;
+                    continue;
+                }
                 return currentUrl;
             }
         } catch (err) {
@@ -64,24 +64,12 @@ async function getFinalRedirect(url, maxRedirects = 10) {
                     const urlObj = new URL(currentUrl);
                     nextUrl = `${urlObj.protocol}//${urlObj.host}${nextUrl}`;
                 }
-                
-                if (nextUrl.includes('productIds=') || nextUrl.includes('/item/')) {
-                    bestUrl = nextUrl;
-                }
-                
-                if (nextUrl.includes('/error/') || nextUrl.includes('404')) {
-                    console.log("Stopping at 404, using best URL:", bestUrl);
-                    return bestUrl;
-                }
-                
                 currentUrl = nextUrl;
             } else {
-                console.error("❌ Redirect error:", err.message);
                 return bestUrl !== url ? bestUrl : currentUrl;
             }
         }
     }
-    
     return currentUrl;
 }
 
