@@ -284,6 +284,25 @@ async function fetchLinkPreview(productId) {
                                  html.match(/<meta\s+name=["']twitter:image["']\s+content=["']([^"']+)["']/i);
             if (metaImageMatch) image_url = metaImageMatch[1];
 
+            // If scraping fails, try a third-party service specifically for metadata
+            if (!title || !image_url) {
+                console.log("Scraping metadata failed, trying LinkPreview API...");
+                try {
+                    const lpRes = await got(`https://api.linkpreview.net/?key=YOUR_API_KEY&q=${encodeURIComponent(productUrl)}`, {
+                        responseType: 'json',
+                        timeout: { request: 10000 }
+                    });
+                    if (lpRes.body && lpRes.body.title) {
+                        return {
+                            title: lpRes.body.title.replace(/ - AliExpress.*$/i, '').trim(),
+                            image_url: lpRes.body.image,
+                            price: "راجع الرابط",
+                            fetch_method: "LinkPreview API"
+                        };
+                    }
+                } catch (e) {}
+            }
+
             const jsonPatterns = [/window\.runParams\s*=\s*(\{.+?\});/s, /window\.detailData\s*=\s*(\{.+?\});/s, /data:\s*(\{.+?\}),\s*common/s];
             for (const pattern of jsonPatterns) {
                 const match = html.match(pattern);
