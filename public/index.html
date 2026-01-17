@@ -664,6 +664,16 @@
             productDiscount.textContent = data.discount ? `-${data.discount}%` : '';
             productDiscount.style.display = data.discount ? 'inline-block' : 'none';
             
+            // Show fetch method
+            const fetchMethodTag = document.getElementById('fetchMethodTag');
+            const fetchMethodName = document.getElementById('fetchMethodName');
+            if (data.fetch_method) {
+                fetchMethodTag.style.display = 'block';
+                fetchMethodName.textContent = data.fetch_method;
+            } else {
+                fetchMethodTag.style.display = 'none';
+            }
+            
             linksContainer.innerHTML = '';
             linkSelect.innerHTML = '<option value="">-- اختر الرابط --</option>';
             linkTypes.forEach(type => {
