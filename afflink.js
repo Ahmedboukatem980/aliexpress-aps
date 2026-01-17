@@ -166,12 +166,45 @@ async function idCatcher(input) {
 
 
 async function fetchLinkPreview(productId) {
-    // Try AliExpress API first
+    // 1. linkpreview.xyz API
     try {
+        console.log("Trying linkpreview.xyz API...");
+        const lpRes = await got("https://linkpreview.xyz/api/get-meta-tags", {
+            searchParams: { url: `https://www.aliexpress.com/item/${productId}.html` },
+            responseType: "json",
+            timeout: { request: 15000 }
+        });
+        if (lpRes.body && (lpRes.body.title || lpRes.body.image)) {
+            console.log("✅ Product fetched via linkpreview.xyz");
+            let title = (lpRes.body.title || `منتج AliExpress #${productId}`).replace(/ - AliExpress.*$/i, '').replace(/\|.*$/i, '').replace('AliExpress', '').trim();
+            return { title, image_url: lpRes.body.image || null, price: "راجع الرابط", fetch_method: "linkpreview.xyz" };
+        }
+    } catch (err) { console.log("linkpreview.xyz failed:", err.message); }
+
+    // 2. microlink.io API
+    try {
+        console.log("Trying microlink.io API...");
+        const apiRes = await got('https://api.microlink.io', {
+            searchParams: { url: `https://m.aliexpress.com/item/${productId}.html` },
+            responseType: 'json',
+            timeout: { request: 20000 }
+        });
+        const data = apiRes.body;
+        if (data.status === 'success' && data.data) {
+            let title = (data.data.title || '').replace(/ - AliExpress.*$/i, '').replace(/\s*-\s*AliExpress\s*\d*$/i, '').trim();
+            if (title.length > 10 && !title.includes('AliExpress') && !title.includes('Smarter Shopping')) {
+                console.log("✅ Product fetched via microlink.io");
+                return { title, image_url: data.data.image?.url || null, price: "راجع الرابط", fetch_method: "microlink.io" };
+            }
+        }
+    } catch (err) { console.log("microlink.io failed:", err.message); }
+
+    // 3. API (AliExpress API)
+    try {
+        console.log("Trying AliExpress API...");
         const apiResult = await getProductDetails(productId);
-        
         if (apiResult && apiResult.title) {
-            console.log("✅ Product fetched via API - Title:", apiResult.title.substring(0, 50) + "...");
+            console.log("✅ Product fetched via AliExpress API");
             return {
                 title: apiResult.title,
                 image_url: apiResult.image_url,
@@ -182,187 +215,49 @@ async function fetchLinkPreview(productId) {
                 shop_name: apiResult.shop_name,
                 rating: apiResult.rating,
                 orders: apiResult.orders,
-                fetch_method: "AliExpress API"
+                fetch_method: "API"
             };
         }
-    } catch (apiErr) {
-        console.log("API fetch failed, falling back to scraping:", apiErr.message);
-    }
+    } catch (err) { console.log("AliExpress API failed:", err.message); }
 
-    // Second option: External API (microlink.io) - use mobile domain for better results
-    try {
-        console.log("Trying microlink.io API...");
-        const apiRes = await got('https://api.microlink.io', {
-            searchParams: {
-                url: `https://m.aliexpress.com/item/${productId}.html`
-            },
-            responseType: 'json',
-            timeout: { request: 20000 }
-        });
-        
-        const data = apiRes.body;
-        if (data.status === 'success' && data.data) {
-            let title = data.data.title || '';
-            const imageUrl = data.data.image?.url || null;
-            
-            // Clean title from AliExpress suffix
-            title = title.replace(/ - AliExpress.*$/i, '').replace(/\s*-\s*AliExpress\s*\d*$/i, '').trim();
-            
-            // Validate: title should be real product name, not just ID
-            const isValidTitle = title && 
-                title.length > 10 && 
-                !title.includes('AliExpress') && 
-                !title.includes('Smarter Shopping') &&
-                !title.match(/^\d+\.html$/);
-            
-            if (isValidTitle) {
-                console.log("✅ Product fetched via microlink.io - Title:", title.substring(0, 50) + "...");
-                return {
-                    title: title,
-                    image_url: imageUrl,
-                    price: "راجع الرابط",
-                    fetch_method: "Microlink API"
-                };
-            }
-        }
-    } catch (apiErr) {
-        console.log("microlink.io API failed:", apiErr.message);
-    }
-
-    // Third option: Fallback to scraping - try multiple URL formats
-    const urlsToTry = [
-        `https://www.aliexpress.com/item/${productId}.html`,
-        `https://www.aliexpress.us/item/${productId}.html`,
-        `https://ar.aliexpress.com/item/${productId}.html`,
-        `https://www.aliexpress.com/item/info/${productId}.html`
-    ];
-    
+    // 4. Preview fetched via scraping
+    const urlsToTry = [`https://www.aliexpress.com/item/${productId}.html`, `https://ar.aliexpress.com/item/${productId}.html` ];
     for (const productUrl of urlsToTry) {
         try {
             const res = await got(productUrl, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-                    'Accept-Language': 'en-US,en;q=0.9,ar;q=0.8',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-                    'Cache-Control': 'no-cache',
-                    'Pragma': 'no-cache'
-                },
+                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
                 timeout: { request: 20000 },
-                followRedirect: true,
-                retry: { limit: 2 }
+                followRedirect: true
             });
-
             const html = res.body;
-            
-            // Skip if 404 page
-            if (html.includes('error/404') || html.includes('Page Not Found') || html.includes('id="error-notice"')) {
-                continue;
-            }
+            if (html.includes('error/404')) continue;
             
             let title = '';
             const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-            if (titleMatch) {
-                title = titleMatch[1].replace(/ - AliExpress.*$/i, '').replace(/\|.*$/i, '').replace('AliExpress', '').trim();
-            }
+            if (titleMatch) title = titleMatch[1].replace(/ - AliExpress.*$/i, '').replace(/\|.*$/i, '').trim();
 
-            // Enhanced Scraping for JSON data in HTML
-            const jsonPatterns = [
-                /window\.runParams\s*=\s*(\{.+?\});/s,
-                /_expDataLayer\.push\((\{.+?\})\);/s,
-                /data:\s*(\{.+?\}),\s*serverTime/s,
-                /window\.detailData\s*=\s*(\{.+?\});/s,
-                /window\.__INITIAL_STATE__\s*=\s*(\{.+?\});/s
-            ];
-
+            const jsonPatterns = [/window\.runParams\s*=\s*(\{.+?\});/s, /window\.detailData\s*=\s*(\{.+?\});/s];
             for (const pattern of jsonPatterns) {
                 const match = html.match(pattern);
                 if (match) {
                     try {
                         let jsonStr = match[1];
-                        // Handle potential trailing characters if the regex was too greedy
-                        if (jsonStr.lastIndexOf('}') !== jsonStr.length - 1) {
-                            jsonStr = jsonStr.substring(0, jsonStr.lastIndexOf('}') + 1);
-                        }
+                        if (jsonStr.lastIndexOf('}') !== jsonStr.length - 1) jsonStr = jsonStr.substring(0, jsonStr.lastIndexOf('}') + 1);
                         const jsonData = JSON.parse(jsonStr);
-                        
-                        // Extract from common structures
-                        const itemDetail = jsonData.productInfoComponent || 
-                                         jsonData.data?.productInfoComponent ||
-                                         jsonData.item ||
-                                         jsonData.product ||
-                                         (jsonData.widgets && jsonData.widgets.find(w => w.name === 'product-info'));
-
-                        if (itemDetail) {
-                            return {
-                                title: itemDetail.subject || itemDetail.title || title,
-                                image_url: itemDetail.mainImage || itemDetail.image || (itemDetail.images && itemDetail.images[0]) || null,
-                                price: itemDetail.price || (itemDetail.priceList && itemDetail.priceList[0]?.amount?.value) || "راجع الرابط",
-                                fetch_method: "Direct Scraping"
-                            };
-                        }
+                        const itemDetail = jsonData.productInfoComponent || jsonData.data?.productInfoComponent || jsonData.item;
+                        if (itemDetail) return {
+                            title: itemDetail.subject || itemDetail.title || title,
+                            image_url: itemDetail.mainImage || itemDetail.image || null,
+                            price: itemDetail.price || "راجع الرابط",
+                            fetch_method: "Preview fetched via scraping"
+                        };
                     } catch (e) {}
                 }
             }
-
-            // Fallback for meta tags if JSON parsing failed
-            const metaTitle = html.match(/<meta property="og:title" content="([^"]+)"/i);
-            const metaImage = html.match(/<meta property="og:image" content="([^"]+)"/i);
-            
-            if (metaTitle && metaTitle[1]) {
-                title = metaTitle[1].replace(/ - AliExpress.*$/i, '').trim();
-            }
-
-            if (title && title.length > 5 && !title.includes('AliExpress')) {
-                console.log("Preview fetched via scraping - Title:", title.substring(0, 50));
-                return {
-                    title: title,
-                    image_url: (metaImage ? metaImage[1] : null),
-                    price: "راجع الرابط",
-                    fetch_method: "Direct Scraping (Meta)"
-                };
-            }
-        } catch (err) {
-            console.log("Scraping attempt failed for", productUrl, "-", err.message);
-        }
+        } catch (err) {}
     }
     
-    // Fourth option: linkpreview.xyz API fallback
-    try {
-        console.log("Trying linkpreview.xyz API fallback...");
-        const lpUrl = "https://linkpreview.xyz/api/get-meta-tags";
-        const lpRes = await got(lpUrl, {
-            searchParams: {
-                url: `https://www.aliexpress.com/item/${productId}.html`
-            },
-            responseType: "json",
-            timeout: { request: 15000 }
-        });
-
-        if (lpRes.body && (lpRes.body.title || lpRes.body.image)) {
-            console.log("✅ Product fetched via linkpreview.xyz");
-            
-            let title = lpRes.body.title || `منتج AliExpress #${productId}`;
-            // Clean title
-            title = title.replace(/ - AliExpress.*$/i, '').replace(/\|.*$/i, '').replace('AliExpress', '').trim();
-            
-            return {
-                title: title,
-                image_url: lpRes.body.image || null,
-                price: "راجع الرابط",
-                fetch_method: "LinkPreview API"
-            };
-        }
-    } catch (err) {
-        console.error("❌ linkpreview.xyz error:", err.message);
-    }
-
-    console.log("All methods failed, using fallback");
-    return {
-        title: `منتج AliExpress #${productId}`,
-        image_url: null,
-        price: "راجع الرابط",
-        fetch_method: "None (Default Fallback)"
-    };
+    return { title: `منتج AliExpress #${productId}`, image_url: null, price: "راجع الرابط", fetch_method: "None" };
 }
 
 
