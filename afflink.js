@@ -166,6 +166,34 @@ async function idCatcher(input) {
 
 
 async function fetchLinkPreview(productId) {
+    // 0. Primary Scraping with custom URL (Often bypasses some API/Scraper blocks)
+    const mobileUrl = `https://m.aliexpress.com/item/${productId}.html`;
+    try {
+        console.log(`Trying primary scraping on ${mobileUrl}...`);
+        const res = await got(mobileUrl, {
+            headers: { 
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'ar-SA,ar;q=0.9,en-US;q=0.8,en;q=0.7'
+            },
+            timeout: { request: 15000 },
+            followRedirect: true
+        });
+        const html = res.body;
+        
+        // Extract meta tags first (highest success rate for mobile)
+        const metaTitleMatch = html.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i);
+        const metaImageMatch = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i);
+        
+        if (metaTitleMatch && metaImageMatch) {
+            let title = metaTitleMatch[1].replace(/ - AliExpress.*$/i, '').trim();
+            if (title.length > 5 && !title.startsWith('html.')) {
+                console.log("✅ Product fetched via Primary Scraping (Meta Tags)");
+                return { title, image_url: metaImageMatch[1], price: "راجع الرابط", fetch_method: "Primary Scraping" };
+            }
+        }
+    } catch (err) { console.log("Primary Scraping failed:", err.message); }
+
     // 1. API (AliExpress API)
     try {
         console.log("Trying AliExpress API...");
