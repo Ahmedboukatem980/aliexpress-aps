@@ -180,7 +180,8 @@ async function fetchLinkPreview(productId) {
             
             // Check if it's a generic title or ID
             const isInvalidTitle = !title || 
-                                 title.startsWith('html.') || 
+                                 title.startsWith('html') || 
+                                 title.includes('wayAdapt') ||
                                  title.match(/^\d+$/);
 
             if (!isInvalidTitle && lpRes.body.image) {
@@ -206,7 +207,8 @@ async function fetchLinkPreview(productId) {
             const isInvalidTitle = !title || 
                                  title.includes('AliExpress') || 
                                  title.includes('Smarter Shopping') ||
-                                 title.startsWith('html.') || 
+                                 title.startsWith('html') || 
+                                 title.includes('wayAdapt') ||
                                  title.match(/^\d+$/);
 
             if (!isInvalidTitle && imageUrl) {
