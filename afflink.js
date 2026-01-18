@@ -139,7 +139,7 @@ async function idCatcher(input) {
 
 
 async function fetchLinkPreview(productId) {
-    // Try AliExpress API first
+    // 1) Try AliExpress API first
     try {
         const apiResult = await getProductDetails(productId);
         
@@ -162,31 +162,7 @@ async function fetchLinkPreview(productId) {
         console.log("API fetch failed, falling back to other methods:", apiErr.message);
     }
 
-    // New option: LinkPreview.xyz API (as used in the bot)
-    try {
-        console.log("Trying LinkPreview.xyz API...");
-        const res = await got("https://linkpreview.xyz/api/get-meta-tags", {
-            searchParams: {
-                url: `https://vi.aliexpress.com/item/${productId}.html`
-            },
-            responseType: "json",
-            timeout: { request: 15000 }
-        });
-
-        if (res.body && (res.body.title || res.body.image)) {
-            console.log("✅ Product fetched via LinkPreview.xyz - Title:", (res.body.title || "").substring(0, 50) + "...");
-            return {
-                method: "LinkPreview.xyz",
-                title: res.body.title || `منتج AliExpress #${productId}`,
-                image_url: res.body.image || null,
-                price: "راجع الرابط"
-            };
-        }
-    } catch (err) {
-        console.log("LinkPreview.xyz API failed:", err.message);
-    }
-
-    // Second option: External API (microlink.io) - use mobile domain for better results
+    // 2) Second option: External API (microlink.io) - use mobile domain for better results
     try {
         console.log("Trying microlink.io API...");
         const apiRes = await got('https://api.microlink.io', {
@@ -226,7 +202,7 @@ async function fetchLinkPreview(productId) {
         console.log("microlink.io API failed:", apiErr.message);
     }
 
-    // Third option: Fallback to scraping - try multiple URL formats
+    // 3) Third option: Fallback to scraping - try multiple URL formats
     const urlsToTry = [
         `https://www.aliexpress.com/item/${productId}.html`,
         `https://www.aliexpress.us/item/${productId}.html`,
@@ -321,6 +297,30 @@ async function fetchLinkPreview(productId) {
         } catch (err) {
             console.log("Scraping attempt failed for", productUrl, "-", err.message);
         }
+    }
+
+    // 4) New option: LinkPreview.xyz API (as used in the bot)
+    try {
+        console.log("Trying LinkPreview.xyz API...");
+        const res = await got("https://linkpreview.xyz/api/get-meta-tags", {
+            searchParams: {
+                url: `https://vi.aliexpress.com/item/${productId}.html`
+            },
+            responseType: "json",
+            timeout: { request: 15000 }
+        });
+
+        if (res.body && (res.body.title || res.body.image)) {
+            console.log("✅ Product fetched via LinkPreview.xyz - Title:", (res.body.title || "").substring(0, 50) + "...");
+            return {
+                method: "LinkPreview.xyz",
+                title: res.body.title || `منتج AliExpress #${productId}`,
+                image_url: res.body.image || null,
+                price: "راجع الرابط"
+            };
+        }
+    } catch (err) {
+        console.log("LinkPreview.xyz API failed:", err.message);
     }
     
     console.log("All methods failed, using fallback");
