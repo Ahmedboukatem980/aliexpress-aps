@@ -375,7 +375,7 @@ async function portaffFunction(cookie, ids) {
         promoRequests.push(
             got("https://portals.aliexpress.com/tools/linkGenerate/generatePromotionLink.htm", {
                 searchParams: {
-                    trackId: "default",
+                    trackId: process.env.ALIEXPRESS_TRACK_ID || "default",
                     targetUrl
                 },
                 headers: {

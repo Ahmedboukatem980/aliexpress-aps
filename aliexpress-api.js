@@ -54,7 +54,7 @@ async function getProductDetails(productId, options = {}) {
                 product_ids: String(productId),
                 target_currency: options.currency || 'USD',
                 target_language: options.language || 'EN',
-                tracking_id: options.trackingId || 'default'
+                tracking_id: process.env.ALIEXPRESS_TRACK_ID || 'default'
             };
 
             params.sign = signRequest(params, appSecret);
@@ -133,7 +133,7 @@ async function searchHotProducts(options = {}) {
                 v: '2.0',
                 target_currency: options.currency || 'USD',
                 target_language: options.language || 'EN',
-                tracking_id: options.trackingId || 'default',
+                tracking_id: process.env.ALIEXPRESS_TRACK_ID || 'default',
                 page_no: options.page || '1',
                 page_size: options.limit || '10'
             };
@@ -225,7 +225,7 @@ async function searchProducts(options = {}) {
                 v: '2.0',
                 target_currency: options.currency || 'USD',
                 target_language: options.language || 'EN',
-                tracking_id: options.trackingId || 'default',
+                tracking_id: process.env.ALIEXPRESS_TRACK_ID || 'default',
                 page_no: options.page || '1',
                 page_size: options.limit || '10',
                 sort: options.sort || 'SALE_PRICE_ASC'
