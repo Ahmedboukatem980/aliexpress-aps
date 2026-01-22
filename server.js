@@ -681,13 +681,16 @@ app.post('/api/ai-refine-title', async (req, res) => {
       `;
       } else {
         prompt = `
-        أنت خبير تسويق جزائري. قم بتحسين عنوان المنتج التالي ليكون جذاباً جداً بالدارجة الجزائرية.
-        المطلوب: عنوان واحد فقط قصير (3-6 كلمات) بدون كلمات صينية عشوائية.
+        Refine the following AliExpress product title to be attractive and professional for an English-speaking audience.
+        Requirements:
+        1. Keep it in English.
+        2. Keep it short and concise (3-6 words).
+        3. Remove junk words (Global Version, 2024, 2025, Free Shipping, etc.).
+        4. Focus on the core product name.
+        5. Start with a relevant emoji.
         
-        مثال: "شاحن أصلي بقوة 240 واط ⚡"
-        
-        العنوان الأصلي: ${title}
-        النتيجة المطلوبة: (العنوان فقط)
+        Original Title: ${title}
+        Result: (Refined title only)
       `;
       }
       
