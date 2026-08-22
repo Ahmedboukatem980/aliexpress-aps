@@ -481,6 +481,7 @@
 
     <div class="toast" id="toast"></div>
 
+    <script src="/persistence.js"></script>
     <script>
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
@@ -515,9 +516,35 @@
             channelId2: '@AffiliDz'
         };
 
-        let settings = JSON.parse(localStorage.getItem('appSettings')) || { ...defaultSettings };
+        let settings = { ...defaultSettings };
         
         function getSettings() { return settings; }
+
+        async function loadSettingsFromServer() {
+            try {
+                settings = await window.loadPersistedSettings(defaultSettings);
+                document.getElementById('warningText').textContent = settings.warning || defaultSettings.warning;
+                if (settings.watermarkPosition) document.getElementById('logoPosition').value = settings.watermarkPosition;
+                if (settings.watermarkSize) document.getElementById('logoSize').value = settings.watermarkSize;
+            } catch (error) {
+                console.error('تعذر تحميل الإعدادات من قاعدة البيانات:', error);
+                document.getElementById('warningText').textContent = defaultSettings.warning;
+            }
+        }
+
+        async function persistCurrentSettings() {
+            const { telegramToken, ...persistedSettings } = settings;
+            const response = await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(persistedSettings)
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'فشل الحفظ');
+            }
+            return result.settings;
+        }
 
         function openSettings() {
             document.getElementById('settingSeasonOffer').value = settings.seasonOffer || '';
@@ -619,7 +646,7 @@
 
         function closeSettings() { document.getElementById('settingsModal').classList.remove('show'); }
 
-        function saveSettings() {
+        async function saveSettings() {
             settings.seasonOffer = document.getElementById('settingSeasonOffer').value;
             settings.seasonOfferEnabled = document.getElementById('settingSeasonOfferEnabled').checked;
             settings.prefix = document.getElementById('settingPrefix').value;
@@ -634,36 +661,30 @@
             settings.telegramToken = document.getElementById('settingBotToken').value;
             settings.channelId = document.getElementById('settingChannelId').value;
             settings.channelId2 = document.getElementById('settingChannelId2').value;
-            
-            localStorage.setItem('appSettings', JSON.stringify(settings));
-            document.getElementById('warningText').textContent = settings.warning;
 
-            fetch('/api/settings/message', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prefix: settings.prefix,
-                    salePrice: settings.salePrice,
-                    linkText: settings.linkText,
-                    couponText: settings.couponText,
-                    footer: settings.footer,
-                    botLink: settings.botLink,
-                    hashtags: settings.hashtags,
-                    dollarRate: settings.dollarRate || 0
-                })
-            }).catch(() => {});
+            try {
+                const persistedSettings = await persistCurrentSettings();
 
-            if (settings.telegramToken) {
-                const syncData = { botToken: settings.telegramToken };
-                fetch('/api/spy/config', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(syncData)
-                }).catch(() => {});
+                if (settings.telegramToken && !settings.telegramToken.includes('****')) {
+                    const tokenResponse = await fetch('/api/spy/config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ botToken: settings.telegramToken })
+                    });
+                    const tokenResult = await tokenResponse.json();
+                    if (!tokenResponse.ok || !tokenResult.success) {
+                        throw new Error(tokenResult.error || 'فشل حفظ توكن Telegram');
+                    }
+                }
+
+                settings = { ...defaultSettings, ...settings, ...persistedSettings };
+                document.getElementById('warningText').textContent = settings.warning;
+                closeSettings();
+                showToast('تم حفظ الإعدادات في قاعدة البيانات');
+            } catch (error) {
+                console.error('فشل حفظ الإعدادات:', error);
+                showToast('تعذر حفظ الإعدادات في قاعدة البيانات');
             }
-
-            closeSettings();
-            showToast('تم حفظ الإعدادات');
         }
 
         let currentProductData = null;
@@ -850,12 +871,24 @@
                             message: document.getElementById('aiPreview')?.value || '',
                             createdAt: new Date().toISOString()
                         };
-                        const existing = JSON.parse(localStorage.getItem('affilidz_saved_posts') || '[]');
-                        existing.unshift(postData);
-                        localStorage.setItem('affilidz_saved_posts', JSON.stringify(existing));
-                    } catch(e) {}
+                        const saveResponse = await fetch('/api/saved-posts', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(postData)
+                        });
+                        const saved = await saveResponse.json();
+                        if (!saveResponse.ok || !saved.success) {
+                            throw new Error(saved.error || 'تعذر حفظ المنشور');
+                        }
+                    } catch(e) {
+                        showToast('تم النشر، لكن تعذر حفظ المنشور في قاعدة البيانات');
+                    }
                 }
-                showToast(result.success ? 'تم النشر! ✅' : 'فشل النشر');
+                if (result.success) {
+                    showToast('تم النشر! ✅');
+                } else {
+                    showToast('فشل النشر');
+                }
             } catch (e) { showToast('خطأ'); }
             finally { publishBtn.disabled = false; }
         };
@@ -886,7 +919,7 @@
             finally { fbBtn.disabled = false; fbBtn.innerHTML = '<i class="fab fa-facebook"></i> نشر على فيسبوك'; }
         }
         
-        // Frame upload handler - save to localStorage for persistence
+        // Frame upload handler - the server persists the uploaded file
         document.getElementById('frameUpload').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -894,8 +927,6 @@
             const reader = new FileReader();
             reader.onload = async (event) => {
                 const frameBase64 = event.target.result;
-                localStorage.setItem('customFrame', frameBase64);
-                
                 const formData = new FormData();
                 formData.append('frame', file);
                 
@@ -918,23 +949,6 @@
             reader.readAsDataURL(file);
         });
         
-        // Restore frame from localStorage on page load
-        const savedFrame = localStorage.getItem('customFrame');
-        if (savedFrame) {
-            document.getElementById('currentFramePreview').src = savedFrame;
-            
-            // Re-upload to server if not exists
-            fetch('/custom_frame.jpg', { method: 'HEAD' })
-                .then(r => { if (!r.ok) throw new Error(); })
-                .catch(() => {
-                    fetch(savedFrame).then(r => r.blob()).then(blob => {
-                        const formData = new FormData();
-                        formData.append('frame', blob, 'frame.jpg');
-                        fetch('/api/upload-frame', { method: 'POST', body: formData });
-                    });
-                });
-        }
-        
         // Logo upload handler
         document.getElementById('logoUpload').addEventListener('change', async (e) => {
             const file = e.target.files[0];
@@ -943,8 +957,6 @@
             const reader = new FileReader();
             reader.onload = async (event) => {
                 const logoBase64 = event.target.result;
-                localStorage.setItem('channelLogo', logoBase64);
-                
                 const formData = new FormData();
                 formData.append('logo', file);
                 
@@ -968,37 +980,21 @@
             reader.readAsDataURL(file);
         });
         
-        // Restore logo from localStorage on page load
-        const savedLogo = localStorage.getItem('channelLogo');
-        if (savedLogo) {
-            document.getElementById('currentLogoPreview').src = savedLogo;
-            document.getElementById('currentLogoPreview').style.opacity = '1';
-            
-            // Re-upload to server if not exists
-            fetch('/watermark_logo.png', { method: 'HEAD' })
-                .then(r => { if (!r.ok) throw new Error(); })
-                .catch(() => {
-                    fetch(savedLogo).then(r => r.blob()).then(blob => {
-                        const formData = new FormData();
-                        formData.append('logo', blob, 'logo.png');
-                        fetch('/api/upload-logo', { method: 'POST', body: formData });
-                    });
-                });
-        }
-        
         // Logo position and size change handlers
         document.getElementById('logoPosition').addEventListener('change', (e) => {
             settings.watermarkPosition = e.target.value;
-            localStorage.setItem('appSettings', JSON.stringify(settings));
+            persistCurrentSettings().catch(() => showToast('تعذر حفظ موضع الشعار في قاعدة البيانات'));
         });
         document.getElementById('logoSize').addEventListener('change', (e) => {
             settings.watermarkSize = e.target.value;
-            localStorage.setItem('appSettings', JSON.stringify(settings));
+            persistCurrentSettings().catch(() => showToast('تعذر حفظ حجم الشعار في قاعدة البيانات'));
         });
         
         // Restore logo settings
         if (settings.watermarkPosition) document.getElementById('logoPosition').value = settings.watermarkPosition;
         if (settings.watermarkSize) document.getElementById('logoSize').value = settings.watermarkSize;
+
+        loadSettingsFromServer();
 
         // إلغاء تسجيل أي service worker قديم (تم حذف sw.js)
         if ('serviceWorker' in navigator) {
