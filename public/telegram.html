@@ -168,7 +168,6 @@
 
     <div class="toast" id="toast"></div>
 
-    <script src="/persistence.js"></script>
     <script>
         const defaultSettings = {
             prefix: '📢تخفيض لـ',
@@ -183,7 +182,7 @@
             channelId2: '@AffiliDz'
         };
 
-        let settings = { ...defaultSettings };
+        let settings = JSON.parse(localStorage.getItem('appSettings')) || { ...defaultSettings };
 
         const productTitle = document.getElementById('productTitle');
         const productImage = document.getElementById('productImage');
@@ -557,11 +556,7 @@
                         imagePreview.style.display = 'block';
                     }
                     // Save post automatically after publishing
-                    try {
-                        await saveCurrentPost();
-                    } catch (saveError) {
-                        showToast('تم النشر، لكن تعذر حفظ المنشور في قاعدة البيانات', 'error');
-                    }
+                    saveCurrentPost();
                 } else {
                     showToast(result.error || 'فشل النشر', 'error');
                 }
@@ -744,24 +739,24 @@
                 createdAt: new Date().toISOString()
             };
 
-            const response = await fetch('/api/saved-posts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(postData)
-            });
-            const result = await response.json();
-            if (!response.ok || !result.success) {
-                throw new Error(result.error || 'تعذر حفظ المنشور');
-            }
-        }
-
-        async function loadSettingsFromServer() {
+            // حفظ في localStorage (المصدر الرئيسي — يبقى بعد إعادة تشغيل السيرفر)
             try {
-                settings = await window.loadPersistedSettings(defaultSettings);
-                updateChannelBadges();
-                updatePreview();
-            } catch (error) {
-                console.error('تعذر تحميل الإعدادات من قاعدة البيانات:', error);
+                const existing = JSON.parse(localStorage.getItem('affilidz_saved_posts') || '[]');
+                existing.unshift(postData);
+                localStorage.setItem('affilidz_saved_posts', JSON.stringify(existing));
+            } catch (e) {
+                console.error('Error saving post to localStorage:', e);
+            }
+
+            // حفظ في السيرفر أيضاً (للحملات التلقائية)
+            try {
+                await fetch('/api/saved-posts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(postData)
+                });
+            } catch (e) {
+                console.error('Error saving post to server:', e);
             }
         }
         
@@ -805,7 +800,6 @@
         }
 
         updatePreview();
-        loadSettingsFromServer();
     </script>
 </body>
 </html>

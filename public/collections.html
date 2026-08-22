@@ -164,7 +164,6 @@
 
     <div class="toast" id="toast"></div>
 
-    <script src="/persistence.js"></script>
     <script>
         const defaultSettings = {
             prefix: '📢تخفيض لـ',
@@ -178,7 +177,7 @@
             channelId: '',
             channelId2: '@AffiliDz'
         };
-        let settings = { ...defaultSettings };
+        let settings = JSON.parse(localStorage.getItem('appSettings')) || { ...defaultSettings };
         
         let products = JSON.parse(localStorage.getItem('collectionProducts')) || [];
         
@@ -442,9 +441,6 @@
             }
         };
 
-        window.loadPersistedSettings(defaultSettings)
-            .then(loadedSettings => { settings = loadedSettings; })
-            .catch(() => {});
         renderProducts();
     </script>
 </body>

@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
@@ -223,6 +224,7 @@ const geminiApiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_G
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
 const model = genAI ? genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig: { temperature: 0.1 } }) : null;
 
+app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
@@ -2871,7 +2873,7 @@ app.post('/api/store/image-search', async (req, res) => {
 // Saved Posts System
 app.get('/api/saved-posts', async (req, res) => {
   try {
-    const posts = await db.getSavedPostsStrict();
+    const posts = await db.getSavedPosts();
     res.json({ success: true, posts });
   } catch (e) {
     console.log('⚠️ Failed to load saved posts:', e.message);
@@ -2973,13 +2975,6 @@ app.post('/api/upload-saved-image', upload.single('image'), (req, res) => {
 
 app.delete('/api/saved-posts/:id', async (req, res) => {
   try {
-    if (req.params.id === 'before') {
-      const { date } = req.body;
-      if (!date) return res.status(400).json({ success: false, error: 'date is required' });
-      const ok = await db.deleteSavedPostsBefore(date);
-      if (!ok) return res.status(500).json({ success: false, error: 'Failed to delete by date' });
-      return res.json({ success: true });
-    }
     const ok = await db.deleteSavedPost(req.params.id);
     if (!ok) return res.status(500).json({ success: false, error: 'Failed to delete' });
     res.json({ success: true });
@@ -3080,6 +3075,18 @@ app.delete('/api/republish/campaigns/:id', async (req, res) => {
 app.get('/api/republish/campaigns/:id/log', async (req, res) => {
   try { const log = await db.getRepublishLog(req.params.id, 200); res.json({ success: true, log }); }
   catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.delete('/api/saved-posts/before', async (req, res) => {
+  try {
+    const { date } = req.body;
+    if (!date) return res.status(400).json({ success: false, error: 'date is required' });
+    const ok = await db.deleteSavedPostsBefore(date);
+    if (!ok) return res.status(500).json({ success: false, error: 'Failed to delete by date' });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // ========== Facebook API ==========
@@ -3211,119 +3218,14 @@ app.get('/api/spy/status', async (req, res) => {
   }
 });
 
-const MAIN_SETTINGS_KEY = 'main_settings';
-const MAIN_SETTING_KEYS = [
-  'seasonOffer',
-  'seasonOfferEnabled',
-  'prefix',
-  'salePrice',
-  'linkText',
-  'couponText',
-  'footer',
-  'botLink',
-  'hashtags',
-  'warning',
-  'dollarRate',
-  'channelId',
-  'channelId2',
-  'watermarkPosition',
-  'watermarkSize',
-];
-const MESSAGE_SETTING_KEYS = [
-  'prefix',
-  'salePrice',
-  'linkText',
-  'couponText',
-  'footer',
-  'botLink',
-  'hashtags',
-  'dollarRate',
-];
-
-function normalizeMainSettings(input = {}) {
-  const settings = {};
-  for (const key of MAIN_SETTING_KEYS) {
-    if (input[key] === undefined) continue;
-    if (key === 'seasonOfferEnabled') {
-      settings[key] = !!input[key];
-    } else if (key === 'dollarRate') {
-      const value = Number(input[key]);
-      if (Number.isFinite(value)) settings[key] = value;
-    } else if (typeof input[key] === 'string') {
-      settings[key] = input[key].slice(0, 5000);
-    }
-  }
-  return settings;
-}
-
-async function readMainSettings() {
-  let settings = {};
-  const raw = await db.getAppStorageStrict(MAIN_SETTINGS_KEY);
-  if (raw) {
-    try {
-      settings = normalizeMainSettings(JSON.parse(raw));
-    } catch (e) {
-      console.log('⚠️ إعدادات التطبيق المحفوظة غير صالحة:', e.message);
-    }
-  }
-
-  const messageValues = await Promise.all(
-    MESSAGE_SETTING_KEYS.map(key => db.getAppStorageStrict('MSG_' + key))
-  );
-  MESSAGE_SETTING_KEYS.forEach((key, index) => {
-    if (messageValues[index] !== null) {
-      settings[key] = key === 'dollarRate'
-        ? (Number.isFinite(Number(messageValues[index])) ? Number(messageValues[index]) : 0)
-        : messageValues[index];
-    }
-  });
-  return settings;
-}
-
-app.get('/api/settings', async (req, res) => {
-  try {
-    const settings = await readMainSettings();
-    const botToken = await getSharedBotToken();
-    res.json({
-      success: true,
-      settings,
-      hasTelegramToken: !!botToken,
-    });
-  } catch (e) {
-    res.status(500).json({ success: false, error: 'تعذر تحميل الإعدادات من قاعدة البيانات' });
-  }
-});
-
-app.post('/api/settings', async (req, res) => {
-  try {
-    const currentSettings = await readMainSettings();
-    const settings = {
-      ...currentSettings,
-      ...normalizeMainSettings(req.body || {}),
-    };
-    await db.setAppStorageStrict(MAIN_SETTINGS_KEY, JSON.stringify(settings));
-    await Promise.all(
-      MESSAGE_SETTING_KEYS
-        .filter(key => settings[key] !== undefined)
-        .map(key => db.setAppStorageStrict('MSG_' + key, String(settings[key])))
-    );
-    res.json({ success: true, settings });
-  } catch (e) {
-    console.error('⚠️ فشل حفظ إعدادات التطبيق:', e.message);
-    res.status(500).json({ success: false, error: 'تعذر حفظ الإعدادات في قاعدة البيانات' });
-  }
-});
-
 app.post('/api/settings/message', async (req, res) => {
   try {
-    const settings = normalizeMainSettings(req.body || {});
-    for (const key of MESSAGE_SETTING_KEYS) {
+    const keys = ['prefix', 'salePrice', 'linkText', 'couponText', 'footer', 'botLink', 'hashtags', 'dollarRate'];
+    for (const key of keys) {
       if (req.body[key] !== undefined) {
-        await db.setAppStorageStrict('MSG_' + key, String(req.body[key]));
+        await db.setAppStorage('MSG_' + key, String(req.body[key]));
       }
     }
-    const current = await readMainSettings();
-    await db.setAppStorageStrict(MAIN_SETTINGS_KEY, JSON.stringify({ ...current, ...settings }));
     // أيضاً احفظ dollarRate في spy_config.json مباشرة (أكثر موثوقية)
     if (req.body.dollarRate !== undefined) {
       try {
@@ -3342,58 +3244,10 @@ app.post('/api/settings/message', async (req, res) => {
   }
 });
 
-app.post('/api/settings/migrate-local-storage', async (req, res) => {
-  try {
-    const legacySettings = normalizeMainSettings(req.body?.settings || {});
-    const legacyPosts = Array.isArray(req.body?.savedPosts)
-      ? req.body.savedPosts.slice(0, 500)
-      : [];
-
-    if (Object.keys(legacySettings).length > 0) {
-      const current = await readMainSettings();
-      const settings = { ...legacySettings, ...current };
-      await db.setAppStorageStrict(MAIN_SETTINGS_KEY, JSON.stringify(settings));
-      await Promise.all(
-        MESSAGE_SETTING_KEYS
-          .filter(key => settings[key] !== undefined)
-          .map(key => db.setAppStorageStrict('MSG_' + key, String(settings[key])))
-      );
-    }
-
-    for (const rawPost of legacyPosts) {
-      if (!rawPost || typeof rawPost !== 'object') continue;
-      const post = {
-        id: typeof rawPost.id === 'string' || typeof rawPost.id === 'number'
-          ? String(rawPost.id)
-          : undefined,
-        title: typeof rawPost.title === 'string' ? rawPost.title.slice(0, 5000) : '',
-        price: typeof rawPost.price === 'string' ? rawPost.price.slice(0, 500) : '',
-        link: typeof rawPost.link === 'string' ? rawPost.link.slice(0, 10000) : '',
-        coupon: typeof rawPost.coupon === 'string' ? rawPost.coupon.slice(0, 1000) : null,
-        image: typeof rawPost.image === 'string' ? rawPost.image.slice(0, 10000) : null,
-        message: typeof rawPost.message === 'string' ? rawPost.message.slice(0, 50000) : null,
-        hook: typeof rawPost.hook === 'string' ? rawPost.hook.slice(0, 5000) : null,
-        createdAt: rawPost.createdAt || rawPost.savedAt || new Date().toISOString(),
-        savedAt: rawPost.savedAt || rawPost.createdAt || new Date().toISOString(),
-      };
-      const saved = await db.addSavedPost(post);
-      if (!saved) throw new Error('تعذر حفظ أحد المنشورات القديمة');
-    }
-
-    res.json({ success: true, migratedPosts: legacyPosts.length });
-  } catch (e) {
-    console.error('⚠️ فشل ترحيل بيانات المتصفح:', e.message);
-    res.status(500).json({ success: false, error: 'تعذر ترحيل البيانات القديمة' });
-  }
-});
-
 app.get('/api/spy/config', async (req, res) => {
   try {
     const config = await loadSpyConfig();
     const safeConfig = { ...config };
-    for (const key of ['botToken', 'cook', 'apiHash', 'phoneNumber', 'facebookPageToken']) {
-      if (safeConfig[key]) safeConfig[key] = '****';
-    }
     // متغيرات البيئة (Render) لها الأولوية على ما هو محفوظ في DB
     const envFbPageId = process.env.FACEBOOK_PAGE_ID || '';
     const envFbToken = process.env.FACEBOOK_PAGE_TOKEN || '';
@@ -3403,6 +3257,10 @@ app.get('/api/spy/config', async (req, res) => {
       pageId: !!envFbPageId,
       pageToken: !!envFbToken
     };
+    if (safeConfig.facebookPageToken) {
+      const t = safeConfig.facebookPageToken;
+      safeConfig.facebookPageToken = t.length > 8 ? t.substring(0, 4) + '****' + t.substring(t.length - 4) : '****';
+    }
     res.json({ config: safeConfig });
   } catch (e) {
     res.json({ config: {} });
@@ -3591,16 +3449,14 @@ app.post('/api/spy/republish', async (req, res) => {
 
 app.post('/api/spy/send-code', async (req, res) => {
   try {
-    const { forceSms = false, ...config } = req.body || {};
+    const config = req.body;
     await saveSpyConfig(config);
     spyConfigCache = config;
     spyConfigCacheTime = Date.now();
-    const result = await sendLoginCode(config, Boolean(forceSms));
+    const result = await sendLoginCode(config);
     res.json(result);
   } catch (error) {
-    const telegramError = error?.errorMessage || error?.message || 'تعذر إرسال رمز Telegram';
-    console.error('❌ Telegram send-code failed:', telegramError);
-    res.status(500).json({ success: false, error: telegramError });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

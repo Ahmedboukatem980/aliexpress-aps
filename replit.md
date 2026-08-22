@@ -5,14 +5,14 @@ An automated AliExpress affiliate marketing platform for Telegram channel owners
 ## Run & Operate
 
 - **Start**: `npm start` (runs `node server.js`)
-- **Required secrets**: `NEON_DATABASE_URL` (Neon PostgreSQL connection string), `TELEGRAM_BOT_TOKEN`, `GEMINI_API_KEY`, `cook` (AliExpress session cookie)
+- **Required secrets**: `DATABASE_URL` (auto-set by Replit DB), `TELEGRAM_BOT_TOKEN`, `GEMINI_API_KEY`, `cook` (AliExpress session cookie)
 - **Optional**: `ALIEXPRESS_APP_KEY`, `ALIEXPRESS_APP_SECRET`, `ALIEXPRESS_TRACK_ID`, `TELEGRAM_CHANNEL_ID`, `FACEBOOK_PAGE_ID`, `FACEBOOK_PAGE_TOKEN` (override DB-stored Facebook credentials; recommended for Render deployment)
 
 ## Stack
 
 - **Runtime**: Node.js 20
 - **Framework**: Express 5
-- **Database**: PostgreSQL via `pg` (Neon only)
+- **Database**: PostgreSQL via `pg` (Replit managed)
 - **AI**: Google Gemini (`@google/generative-ai`)
 - **Telegram**: Telegraf (bot) + telegram (MTProto for spy)
 - **Frontend**: Vanilla HTML/CSS/JS (PWA)

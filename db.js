@@ -1,8 +1,6 @@
 const { Pool } = require('pg');
 
-// Neon is the only supported database for this project.
-// Do not fall back to Replit's automatically managed DATABASE_URL.
-const dbUrl = process.env.NEON_DATABASE_URL;
+const dbUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
 
 const pool = dbUrl ? new Pool({
   connectionString: dbUrl,
@@ -456,37 +454,32 @@ async function addSavedPost(post) {
   }
 }
 
-async function getSavedPostsStrict(limit = null) {
-  const sql = limit
-    ? 'SELECT * FROM saved_posts ORDER BY saved_at DESC LIMIT $1'
-    : 'SELECT * FROM saved_posts ORDER BY saved_at DESC';
-  const result = await query(sql, limit ? [limit] : []);
-  return result.rows.map(row => {
-    const postId = row.post_id || String(row.id);
-    const hasBlob = row.image_data && row.image_data.length > 0;
-    const image = hasBlob
-      ? `/api/saved-posts/${encodeURIComponent(postId)}/image`
-      : row.image_url;
-    return {
-      id: postId,
-      title: row.title,
-      price: row.price,
-      link: row.link,
-      image,
-      imageOriginal: row.image_url,
-      hasImageBlob: !!hasBlob,
-      coupon: row.coupon,
-      message: row.message,
-      hook: row.hook,
-      createdAt: row.created_at || row.saved_at,
-      savedAt: row.saved_at,
-    };
-  });
-}
-
 async function getSavedPosts(limit = null) {
   try {
-    return await getSavedPostsStrict(limit);
+    const sql = limit ? 'SELECT * FROM saved_posts ORDER BY saved_at DESC LIMIT $1' : 'SELECT * FROM saved_posts ORDER BY saved_at DESC';
+    const params = limit ? [limit] : [];
+    const result = await query(sql, params);
+    return result.rows.map(row => {
+      const postId = row.post_id || String(row.id);
+      const hasBlob = row.image_data && row.image_data.length > 0;
+      const image = hasBlob
+        ? `/api/saved-posts/${encodeURIComponent(postId)}/image`
+        : row.image_url;
+      return {
+        id: postId,
+        title: row.title,
+        price: row.price,
+        link: row.link,
+        image,
+        imageOriginal: row.image_url,
+        hasImageBlob: !!hasBlob,
+        coupon: row.coupon,
+        message: row.message,
+        hook: row.hook,
+        createdAt: row.created_at || row.saved_at,
+        savedAt: row.saved_at,
+      };
+    });
   } catch (e) {
     console.log('⚠️ Failed to load saved posts:', e.message);
     return [];
@@ -558,31 +551,24 @@ async function clearSavedPosts() {
   }
 }
 
-async function setAppStorageStrict(key, value) {
-  await query(
-    'INSERT INTO app_storage (key, value, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()',
-    [key, value]
-  );
-  return true;
-}
-
 async function setAppStorage(key, value) {
   try {
-    return await setAppStorageStrict(key, value);
+    await query(
+      'INSERT INTO app_storage (key, value, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()',
+      [key, value]
+    );
+    return true;
   } catch (e) {
     console.log('⚠️ Failed to set app storage:', e.message);
     return false;
   }
 }
 
-async function getAppStorageStrict(key) {
-  const result = await query('SELECT value FROM app_storage WHERE key = $1', [key]);
-  return result.rows.length === 0 ? null : result.rows[0].value;
-}
-
 async function getAppStorage(key) {
   try {
-    return await getAppStorageStrict(key);
+    const result = await query('SELECT value FROM app_storage WHERE key = $1', [key]);
+    if (result.rows.length === 0) return null;
+    return result.rows[0].value;
   } catch (e) {
     console.log('⚠️ Failed to get app storage:', e.message);
     return null;
@@ -715,7 +701,6 @@ module.exports = {
   getGeminiKeys,
   addSavedPost,
   getSavedPosts,
-  getSavedPostsStrict,
   getSavedPostImage,
   setSavedPostImage,
   updateSavedPost,
@@ -731,7 +716,5 @@ module.exports = {
   getRepublishLog,
   setAppStorage,
   getAppStorage,
-  setAppStorageStrict,
-  getAppStorageStrict,
   closePool: async () => { if (pool) { await pool.end(); console.log('🔌 Database pool closed'); } },
 };

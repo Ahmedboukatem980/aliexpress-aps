@@ -349,7 +349,6 @@
 
     <div class="toast" id="toast"></div>
 
-    <script src="/persistence.js"></script>
     <script>
         // ===== State =====
         const state = {
@@ -427,7 +426,7 @@
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
             try {
-                const settings = await window.loadPersistedSettings();
+                const settings = JSON.parse(localStorage.getItem('appSettings') || '{}');
                 const credentials = { cook: settings.cookie || '' };
                 const res = await fetch('/api/affiliate', {
                     method: 'POST',
