@@ -177,10 +177,15 @@
 
 </div>
 
+<script src="/persistence.js"></script>
 <script>
 let parsedData = null;
 let currentJobId = null;
 let pollInterval = null;
+let appSettings = {};
+const appSettingsReady = window.loadPersistedSettings().then(settings => {
+  appSettings = settings;
+}).catch(() => {});
 
 function showToast(msg, type = 'success') {
   const t = document.getElementById('toast');
@@ -190,7 +195,7 @@ function showToast(msg, type = 'success') {
 }
 
 function getAppSettings() {
-  try { return JSON.parse(localStorage.getItem('appSettings') || '{}'); } catch (e) { return {}; }
+  return appSettings;
 }
 
 function getCredentials() {
@@ -299,6 +304,7 @@ function previewMessage() {
 }
 
 async function startImport() {
+  await appSettingsReady;
   if (!parsedData) { showToast('ارفع ملف Excel أولاً', 'error'); return; }
   const linkCol = document.getElementById('mapLink').value;
   if (!linkCol) { showToast('اختر عمود الرابط', 'error'); return; }

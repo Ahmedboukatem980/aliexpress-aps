@@ -269,8 +269,9 @@
       </div>
     </div>
 
+    <script src="/persistence.js"></script>
     <script>
-        let settings = JSON.parse(localStorage.getItem('appSettings')) || {};
+        let settings = {};
         let savedPosts = [];
 
         function showToast(msg, type = '') {
@@ -280,36 +281,22 @@
             setTimeout(() => toast.className = 'toast', 3000);
         }
 
-        // ===== localStorage helpers =====
-        const LS_KEY = 'affilidz_saved_posts';
-        function lsGetPosts() {
-            try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch(e) { return []; }
-        }
-        function lsSavePosts(posts) {
-            try { localStorage.setItem(LS_KEY, JSON.stringify(posts)); } catch(e) { showToast('تعذر الحفظ في المتصفح (مساحة ممتلئة؟)', 'error'); }
+        async function loadSettingsFromServer() {
+            try {
+                settings = await window.loadPersistedSettings();
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+            }
         }
 
         async function loadPosts() {
             document.getElementById('loadingState').style.display = 'none';
-            const lsPosts = lsGetPosts();
-
-            // اجلب أيضاً من السيرفر (منشورات التجسس + منشورات index.html القديمة)
-            let serverPosts = [];
             try {
+                await window.migrateLegacyStorage();
                 const r = await fetch('/api/saved-posts');
                 const d = await r.json();
-                if (Array.isArray(d)) serverPosts = d;
-            } catch(e) {}
-
-            // دمج: localStorage + سيرفر بدون تكرار (ID كمفتاح)
-            const seen = new Set();
-            const merged = [];
-            for (const p of [...lsPosts, ...serverPosts]) {
-                const key = p.id || p.post_id;
-                if (key && seen.has(key)) continue;
-                if (key) seen.add(key);
-                // توحيد الحقول (سيرفر يستخدم post_id، localStorage يستخدم id)
-                merged.push({
+                if (!r.ok || !d.success) throw new Error(d.error || 'فشل تحميل المنشورات');
+                const posts = (d.posts || []).map(p => ({
                     id: p.id || p.post_id,
                     title: p.title,
                     price: p.price,
@@ -319,22 +306,29 @@
                     message: p.message,
                     hook: p.hook,
                     createdAt: p.createdAt || p.created_at || p.saved_at
-                });
-            }
+                })).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-            const posts = merged.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-            if (posts.length > 0) {
-                savedPosts = posts;
-                document.getElementById('postsCount').textContent = posts.length;
-                document.getElementById('clearAllBtn').style.display = 'flex';
-                document.getElementById('emptyState').style.display = 'none';
-                renderPosts(posts);
-            } else {
+                if (posts.length > 0) {
+                    savedPosts = posts;
+                    document.getElementById('postsCount').textContent = posts.length;
+                    document.getElementById('clearAllBtn').style.display = 'flex';
+                    document.getElementById('emptyState').style.display = 'none';
+                    renderPosts(posts);
+                } else {
+                    savedPosts = [];
+                    document.getElementById('emptyState').style.display = 'block';
+                    document.getElementById('postsList').innerHTML = '';
+                    document.getElementById('clearAllBtn').style.display = 'none';
+                    document.getElementById('postsCount').textContent = '0';
+                }
+            } catch (error) {
+                savedPosts = [];
                 document.getElementById('emptyState').style.display = 'block';
                 document.getElementById('postsList').innerHTML = '';
                 document.getElementById('clearAllBtn').style.display = 'none';
                 document.getElementById('postsCount').textContent = '0';
+                showToast('تعذر تحميل المنشورات من قاعدة البيانات', 'error');
+                console.error('Failed to load saved posts:', error);
             }
         }
 
@@ -559,7 +553,7 @@
             reader.readAsDataURL(file);
         }
 
-        function saveEditPost() {
+        async function saveEditPost() {
             const id = document.getElementById('ePostId').value;
             const updates = {
                 title: document.getElementById('eTitle').value.trim(),
@@ -576,20 +570,16 @@
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...';
 
             try {
-                const posts = lsGetPosts();
-                const idx = posts.findIndex(p => p.id === id);
-                if (idx === -1) { showToast('لم يُعثر على المنشور', 'error'); return; }
-                posts[idx] = { ...posts[idx], ...updates };
-                lsSavePosts(posts);
-                showToast('تم الحفظ بنجاح ✅', 'success');
-                closeEditModal();
-                loadPosts();
-                // تحديث السيرفر في الخلفية (بدون انتظار)
-                fetch('/api/saved-posts/' + encodeURIComponent(id), {
+                const response = await fetch('/api/saved-posts/' + encodeURIComponent(id), {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(updates)
-                }).catch(() => {});
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.error || 'فشل الحفظ');
+                showToast('تم الحفظ في قاعدة البيانات ✅', 'success');
+                closeEditModal();
+                loadPosts();
             } catch (e) {
                 showToast('فشل الحفظ', 'error');
             } finally {
@@ -598,38 +588,49 @@
             }
         }
 
-        function deletePost(id) {
+        async function deletePost(id) {
             if (!confirm('هل تريد حذف هذا المنشور؟')) return;
-            const posts = lsGetPosts().filter(p => p.id !== id);
-            lsSavePosts(posts);
-            showToast('تم حذف المنشور', 'success');
-            loadPosts();
-            // حذف من السيرفر في الخلفية
-            fetch(`/api/saved-posts/${id}`, { method: 'DELETE' }).catch(() => {});
+            try {
+                const response = await fetch(`/api/saved-posts/${id}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.error || 'فشل الحذف');
+                showToast('تم حذف المنشور', 'success');
+                loadPosts();
+            } catch (e) {
+                showToast('فشل حذف المنشور من قاعدة البيانات', 'error');
+            }
         }
 
-        document.getElementById('clearAllBtn').onclick = () => {
+        document.getElementById('clearAllBtn').onclick = async () => {
             if (!confirm('هل تريد حذف جميع المنشورات المحفوظة؟')) return;
-            localStorage.removeItem(LS_KEY);
-            showToast('تم حذف جميع المنشورات', 'success');
-            loadPosts();
-            fetch('/api/saved-posts', { method: 'DELETE' }).catch(() => {});
+            try {
+                const response = await fetch('/api/saved-posts', { method: 'DELETE' });
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.error || 'فشل المسح');
+                showToast('تم مسح جميع المنشورات', 'success');
+                loadPosts();
+            } catch (e) {
+                showToast('فشل مسح المنشورات من قاعدة البيانات', 'error');
+            }
         };
 
-        document.getElementById('deleteBeforeBtn').onclick = () => {
+        document.getElementById('deleteBeforeBtn').onclick = async () => {
             const date = document.getElementById('deleteBeforeDate').value;
             if (!date) { showToast('اختر تاريخاً أولاً', 'error'); return; }
             if (!confirm('هل تريد حذف كل المنشورات الأقدم من هذا التاريخ؟')) return;
-            const cutoff = new Date(date).getTime();
-            const posts = lsGetPosts().filter(p => new Date(p.createdAt).getTime() >= cutoff);
-            lsSavePosts(posts);
-            showToast('تم حذف المنشورات الأقدم من التاريخ', 'success');
-            loadPosts();
-            fetch('/api/saved-posts/before', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ date: new Date(date).toISOString() })
-            }).catch(() => {});
+            try {
+                const response = await fetch('/api/saved-posts/before', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ date: new Date(date).toISOString() })
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.error || 'فشل الحذف');
+                showToast('تم حذف المنشورات الأقدم من التاريخ', 'success');
+                loadPosts();
+            } catch (e) {
+                showToast('فشل حذف المنشورات من قاعدة البيانات', 'error');
+            }
         };
 
         // ===== Republish Campaigns UI =====
@@ -754,6 +755,7 @@
           campaignAction(`/api/republish/campaigns/${id}`, 'DELETE', 'تم حذف الحملة');
         }
 
+        loadSettingsFromServer();
         loadPosts();
         loadCampaigns();
         setInterval(loadCampaigns, 30000);

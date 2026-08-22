@@ -418,7 +418,9 @@
 
     <div class="toast" id="toast"></div>
 
+    <script src="/persistence.js"></script>
     <script>
+        let mainSettings = {};
         let config = {
             enabled: false,
             sourceChannels: [],
@@ -588,8 +590,8 @@
             config.useTypedLinks = document.getElementById('useTypedLinks').checked;
             config.applyFrame = document.getElementById('applyFrame').checked;
             config.removeBackground = document.getElementById('removeBackground').checked;
-            // اقرأ إعدادات الإطار/اللوقو من الإعدادات الرئيسية المخزَّنة محلياً
-            const _ms = JSON.parse(localStorage.getItem('appSettings') || '{}');
+            // اقرأ إعدادات الإطار/اللوقو من الإعدادات المحفوظة في الخادم
+            const _ms = mainSettings;
             config.watermarkPosition = _ms.watermarkPosition || 'bottom-right';
             config.watermarkSize = _ms.watermarkSize || 'medium';
             config.facebookEnabled = document.getElementById('facebookEnabled').checked;
@@ -598,7 +600,6 @@
             if (fbTokenVal && !fbTokenVal.includes('****')) {
                 config.facebookPageToken = fbTokenVal;
             }
-            const mainSettings = JSON.parse(localStorage.getItem('appSettings') || '{}');
             config.messageTemplate = {
                 headerText: '',
                 prefix: mainSettings.prefix || '',
@@ -746,6 +747,7 @@
 
         async function loadConfig() {
             try {
+                mainSettings = await window.loadPersistedSettings();
                 const r = await fetch('/api/spy/config');
                 const d = await r.json();
                 if (d.config) {
