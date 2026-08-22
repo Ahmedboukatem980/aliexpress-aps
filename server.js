@@ -3456,7 +3456,10 @@ app.post('/api/spy/send-code', async (req, res) => {
     const result = await sendLoginCode(config, Boolean(forceSms));
     res.json(result);
   } catch (error) {
-    const telegramError = error?.errorMessage || error?.message || 'تعذر إرسال رمز Telegram';
+    const telegramErrorCode = error?.errorMessage || '';
+    const telegramError = telegramErrorCode === 'SEND_CODE_UNAVAILABLE'
+      ? 'Telegram لا يسمح بإرسال رمز جديد الآن لأن طلبًا سابقًا ما زال صالحًا. افتح محادثة Telegram أو استخدم زر طلب SMS.'
+      : telegramErrorCode || error?.message || 'تعذر إرسال رمز Telegram';
     console.error('❌ Telegram send-code failed:', telegramError);
     res.status(500).json({ success: false, error: telegramError });
   }

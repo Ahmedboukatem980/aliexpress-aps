@@ -789,6 +789,17 @@
                 const r = await fetch('/api/spy/status');
                 const d = await r.json();
                 updateStatusUI(d.running);
+                if (d.authStep === 'code_sent') {
+                    document.querySelectorAll('.auth-step').forEach(s => s.classList.remove('active'));
+                    document.getElementById('auth-step-code').classList.add('active');
+                    const hint = document.getElementById('codeDeliveryHint');
+                    hint.innerHTML = '<i class="fas fa-mobile-screen"></i> يوجد رمز تحقق قيد الانتظار. افحص محادثة <strong>Telegram</strong> على جهاز مسجّل بالحساب، وإذا لم يظهر استخدم زر طلب الرمز عبر SMS.';
+                    hint.style.display = 'block';
+                    document.getElementById('requestSmsBtn').style.display = 'block';
+                } else if (d.authStep === 'need_password') {
+                    document.querySelectorAll('.auth-step').forEach(s => s.classList.remove('active'));
+                    document.getElementById('auth-step-password').classList.add('active');
+                }
                 if (d.session) {
                     const ss = document.getElementById('sessionStatus');
                     ss.innerHTML = d.session === 'connected'

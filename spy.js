@@ -3232,8 +3232,24 @@ async function sendLoginCode(config, forceSms = false) {
 
   if (!apiId || !apiHash) throw new Error('API ID و API Hash مطلوبان');
 
+  await loadAuthState();
+  if (
+    !forceSms &&
+    authState.step === 'code_sent' &&
+    authState.phoneCodeHash &&
+    authState.phoneNumber === phoneNumber
+  ) {
+    console.log('ℹ️ يوجد رمز تحقق صالح — لن يتم إنشاء طلب جديد');
+    return {
+      success: true,
+      phoneNumber,
+      delivery: 'app',
+      existing: true,
+      message: 'يوجد رمز تحقق قيد الانتظار. افتح محادثة Telegram أو استخدم زر طلب SMS.'
+    };
+  }
+
   if (forceSms) {
-    await loadAuthState();
     if (
       authState.step === 'code_sent' &&
       authState.phoneCodeHash &&
@@ -3406,6 +3422,9 @@ async function verifyCode(config, code, password) {
 }
 
 async function getStatus() {
+  if (authState.step === 'idle') {
+    await loadAuthState();
+  }
   const config = await getCachedConfig();
   const safeConfig = { ...config };
   safeConfig.apiHash = safeConfig.apiHash ? '****' : '';
