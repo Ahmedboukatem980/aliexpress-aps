@@ -3598,7 +3598,9 @@ app.post('/api/spy/send-code', async (req, res) => {
     const result = await sendLoginCode(config, Boolean(forceSms));
     res.json(result);
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    const telegramError = error?.errorMessage || error?.message || 'تعذر إرسال رمز Telegram';
+    console.error('❌ Telegram send-code failed:', telegramError);
+    res.status(500).json({ success: false, error: telegramError });
   }
 });
 

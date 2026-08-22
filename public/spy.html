@@ -821,6 +821,9 @@
                 });
                 const d = await r.json();
                 if (d.success) {
+                    if (d.phoneNumber) {
+                        config.phoneNumber = d.phoneNumber;
+                    }
                     document.querySelectorAll('.auth-step').forEach(s => s.classList.remove('active'));
                     document.getElementById('auth-step-code').classList.add('active');
                     const hint = document.getElementById('codeDeliveryHint');

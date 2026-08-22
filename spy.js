@@ -3197,6 +3197,27 @@ async function stopSpy() {
   console.log('🛑 تم إيقاف نظام التجسس');
 }
 
+function normalizeTelegramPhone(value) {
+  if (typeof value !== 'string') {
+    throw new Error('رقم الهاتف مطلوب بصيغة دولية مثل +213XXXXXXXXX');
+  }
+
+  let phone = value.trim().replace(/[()\s-]/g, '');
+  if (phone.startsWith('00')) phone = '+' + phone.slice(2);
+
+  // Accept the common Algerian local format, e.g. 0550123456.
+  if (/^0\d{9}$/.test(phone)) {
+    phone = '+213' + phone.slice(1);
+  } else if (/^\d{8,15}$/.test(phone)) {
+    phone = '+' + phone;
+  }
+
+  if (!/^\+\d{8,15}$/.test(phone)) {
+    throw new Error('رقم الهاتف غير صالح. استخدم الصيغة الدولية مثل +213XXXXXXXXX');
+  }
+  return phone;
+}
+
 async function sendLoginCode(config, forceSms = false) {
   let TelegramClient, StringSession;
   try {
@@ -3208,10 +3229,62 @@ async function sendLoginCode(config, forceSms = false) {
 
   const apiId = parseInt(config.apiId);
   const apiHash = config.apiHash;
-  const phoneNumber = config.phoneNumber;
+  const phoneNumber = normalizeTelegramPhone(config.phoneNumber);
 
   if (!apiId || !apiHash) throw new Error('API ID و API Hash مطلوبان');
-  if (!phoneNumber) throw new Error('رقم الهاتف مطلوب');
+
+  // When the user explicitly requests SMS, keep the existing Telegram
+  // authentication challenge and resend it instead of creating a new one.
+  // Creating a fresh challenge can invalidate the previous code or trigger
+  // Telegram's rate limit after several attempts.
+  if (forceSms) {
+    await loadAuthState();
+    if (
+      authState.step === 'code_sent' &&
+      authState.phoneCodeHash &&
+      authState.phoneNumber === phoneNumber
+    ) {
+      if (!spyClient) {
+        const pendingSession = await loadPendingAuthSession();
+        if (pendingSession) {
+          spyClient = new TelegramClient(
+            new StringSession(pendingSession),
+            apiId,
+            apiHash,
+            { connectionRetries: 5 }
+          );
+          await spyClient.connect();
+        }
+      }
+
+      if (spyClient) {
+        const { Api } = require('telegram/tl');
+        const resent = await spyClient.invoke(
+          new Api.auth.ResendCode({
+            phoneNumber,
+            phoneCodeHash: authState.phoneCodeHash,
+          })
+        );
+        if (!resent.phoneCodeHash) {
+          throw new Error('تعذر طلب رمز SMS. انتظر قليلًا ثم أرسل رمزًا جديدًا.');
+        }
+        authState.phoneCodeHash = resent.phoneCodeHash;
+        authState.phoneNumber = phoneNumber;
+        await saveAuthState();
+        const deliveredViaApp = resent.type instanceof Api.auth.SentCodeTypeApp;
+        console.log(`✅ تم طلب إعادة إرسال رمز التحقق (الوجهة: ${deliveredViaApp ? 'app' : 'sms'})`);
+        return {
+          success: true,
+          phoneNumber,
+          delivery: deliveredViaApp ? 'app' : 'sms',
+          resent: true,
+          message: deliveredViaApp
+            ? 'أعاد Telegram إرسال الرمز داخل تطبيق Telegram على جهاز مسجّل.'
+            : 'تم طلب إعادة إرسال رمز التحقق عبر SMS إلى رقم الهاتف.'
+        };
+      }
+    }
+  }
 
   if (spyClient) {
     try { await spyClient.disconnect(); } catch (e) {}
@@ -3243,6 +3316,7 @@ async function sendLoginCode(config, forceSms = false) {
   console.log(`✅ تم حفظ حالة الرمز المرسل، في انتظار التحقق (الوجهة: ${delivery})`);
   return {
     success: true,
+    phoneNumber,
     delivery,
     message: result.isCodeViaApp
       ? 'أرسل Telegram الرمز داخل تطبيق Telegram على جهاز مسجّل مسبقًا.'
