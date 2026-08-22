@@ -1,6 +1,8 @@
 const { Pool } = require('pg');
 
-const dbUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
+// Neon is the only supported database for this project.
+// Do not fall back to Replit's automatically managed DATABASE_URL.
+const dbUrl = process.env.NEON_DATABASE_URL;
 
 const pool = dbUrl ? new Pool({
   connectionString: dbUrl,
