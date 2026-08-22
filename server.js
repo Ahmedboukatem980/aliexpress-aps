@@ -3449,14 +3449,16 @@ app.post('/api/spy/republish', async (req, res) => {
 
 app.post('/api/spy/send-code', async (req, res) => {
   try {
-    const config = req.body;
+    const { forceSms = false, ...config } = req.body || {};
     await saveSpyConfig(config);
     spyConfigCache = config;
     spyConfigCacheTime = Date.now();
-    const result = await sendLoginCode(config);
+    const result = await sendLoginCode(config, Boolean(forceSms));
     res.json(result);
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    const telegramError = error?.errorMessage || error?.message || 'تعذر إرسال رمز Telegram';
+    console.error('❌ Telegram send-code failed:', telegramError);
+    res.status(500).json({ success: false, error: telegramError });
   }
 });
 
