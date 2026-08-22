@@ -1,0 +1,1 @@
+- [Telegram verification lifecycle](telegram-verification-lifecycle.md) — A saved `code_sent` state must expire, or stale Telegram requests block new delivery attempts.

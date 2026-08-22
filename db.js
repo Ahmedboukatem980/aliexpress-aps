@@ -213,6 +213,7 @@ async function getAuthState() {
       step: row.step,
       phoneCodeHash: row.phone_code_hash,
       phoneNumber: row.phone_number,
+      updatedAt: row.updated_at,
     };
   } catch (e) {
     console.log('⚠️ Failed to load auth state:', e.message);

@@ -57,6 +57,7 @@ const SESSION_FILE = path.join(__dirname, 'spy_session.json');
 const PROCESSED_LINKS_FILE = path.join(__dirname, 'spy_processed.json');
 const AUTH_STATE_FILE = path.join(__dirname, 'spy_auth_state.json');
 const PENDING_AUTH_SESSION_FILE = path.join(__dirname, 'spy_pending_auth_session.json');
+const AUTH_CODE_TTL_MS = 5 * 60 * 1000;
 
 const inFlightLinks = new Map(); // change to Map to track timeout
 const processedMessageIds = new Set();
@@ -1334,11 +1335,41 @@ function loadPendingReviews() {
 
 loadPendingReviews();
 
+function getAuthStateExpiry(state) {
+  if (!state || state.step !== 'code_sent') return null;
+  if (Number.isFinite(Number(state.expiresAt))) return Number(state.expiresAt);
+
+  const sentAt = state.codeSentAt || state.updatedAt;
+  if (!sentAt) return 0;
+  const timestamp = typeof sentAt === 'number' ? sentAt : Date.parse(sentAt);
+  return Number.isFinite(timestamp) ? timestamp + AUTH_CODE_TTL_MS : 0;
+}
+
+function isExpiredAuthState(state) {
+  const expiresAt = getAuthStateExpiry(state);
+  return expiresAt === 0 || (expiresAt !== null && expiresAt <= Date.now());
+}
+
+async function resetPendingAuthState(reason) {
+  if (spyClient) {
+    try { await spyClient.disconnect(); } catch (e) {}
+    spyClient = null;
+  }
+  authState = { step: 'idle', phoneCodeHash: null };
+  await saveAuthState();
+  await clearPendingAuthSession();
+  if (reason) console.log(`ℹ️ ${reason}`);
+  return authState;
+}
+
 async function loadAuthState() {
   try {
     const dbState = await db.getAuthState();
     if (dbState && Object.keys(dbState).length > 0) {
       authState = dbState;
+      if (isExpiredAuthState(authState)) {
+        return await resetPendingAuthState('انتهت صلاحية رمز Telegram المحفوظ وتمت إزالة جلسة المصادقة القديمة');
+      }
       console.log(`✅ تم استعادة حالة المصادقة من قاعدة البيانات: ${authState.step}`);
       return authState;
     }
@@ -1349,6 +1380,9 @@ async function loadAuthState() {
     if (fs.existsSync(AUTH_STATE_FILE)) {
       const data = JSON.parse(fs.readFileSync(AUTH_STATE_FILE, 'utf8'));
       authState = data;
+      if (isExpiredAuthState(authState)) {
+        return await resetPendingAuthState('انتهت صلاحية رمز Telegram المحفوظ وتمت إزالة جلسة المصادقة القديمة');
+      }
       console.log(`✅ تم استعادة حالة المصادقة من الملف: ${authState.step}`);
       return authState;
     }
@@ -3281,6 +3315,10 @@ async function sendLoginCode(config, forceSms = false) {
         }
         authState.phoneCodeHash = resent.phoneCodeHash;
         authState.phoneNumber = phoneNumber;
+        authState.codeSentAt = Date.now();
+        authState.expiresAt = authState.codeSentAt + (
+          Number(resent.timeout) > 0 ? Number(resent.timeout) * 1000 : AUTH_CODE_TTL_MS
+        );
         await saveAuthState();
         const deliveredViaApp = resent.type instanceof Api.auth.SentCodeTypeApp;
         console.log(`✅ تم طلب إعادة إرسال رمز التحقق (الوجهة: ${deliveredViaApp ? 'app' : 'sms'})`);
@@ -3321,7 +3359,15 @@ async function sendLoginCode(config, forceSms = false) {
     throw new Error('تعذّر حفظ جلسة المصادقة المؤقتة. أعد المحاولة بعد التحقق من التخزين الدائم.');
   }
 
-  authState = { step: 'code_sent', phoneCodeHash: result.phoneCodeHash, phoneNumber };
+  const codeSentAt = Date.now();
+  const timeoutMs = Number(result.timeout) > 0 ? Number(result.timeout) * 1000 : AUTH_CODE_TTL_MS;
+  authState = {
+    step: 'code_sent',
+    phoneCodeHash: result.phoneCodeHash,
+    phoneNumber,
+    codeSentAt,
+    expiresAt: codeSentAt + timeoutMs
+  };
   await saveAuthState();
   const delivery = result.isCodeViaApp ? 'app' : 'sms';
   console.log(`✅ تم حفظ حالة الرمز المرسل، في انتظار التحقق (الوجهة: ${delivery})`);
@@ -3382,6 +3428,8 @@ async function verifyCode(config, code, password) {
       } catch (e) {
         if (e.errorMessage === 'SESSION_PASSWORD_NEEDED') {
           authState.step = 'need_password';
+          delete authState.expiresAt;
+          delete authState.codeSentAt;
           await saveAuthState();
           return { success: false, needPassword: true, message: 'الحساب محمي بكلمة مرور - أدخل كلمة المرور' };
         }
@@ -3417,6 +3465,10 @@ async function verifyCode(config, code, password) {
 
     return { success: true, message: 'تم تسجيل الدخول بنجاح! يمكنك الآن تشغيل التجسس' };
   } catch (e) {
+    if (e?.errorMessage === 'PHONE_CODE_EXPIRED') {
+      await resetPendingAuthState('انتهت صلاحية رمز Telegram أثناء التحقق');
+      throw new Error('انتهت صلاحية الرمز. اضغط إرسال رمز التحقق للحصول على رمز جديد.');
+    }
     throw new Error('فشل التحقق: ' + e.message);
   }
 }
