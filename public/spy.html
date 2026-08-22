@@ -151,7 +151,7 @@
                         </div>
                         <div class="form-group">
                             <label>API Hash:</label>
-                            <input type="text" id="apiHash" placeholder="0123456789abcdef..." style="direction: ltr;">
+                            <input type="password" id="apiHash" placeholder="0123456789abcdef..." style="direction: ltr;" autocomplete="off">
                         </div>
                     </div>
                     <div class="form-group">
@@ -166,12 +166,16 @@
                             </button>
                         </div>
                         <div class="auth-step" id="auth-step-code">
+                            <div id="codeDeliveryHint" class="info-box" style="display:none;"></div>
                             <div class="form-group">
                                 <label>رمز التحقق:</label>
                                 <input type="text" id="verifyCode" placeholder="أدخل الرمز من تيليجرام" style="direction: ltr; text-align: center; font-size: 20px; letter-spacing: 8px;">
                             </div>
                             <button class="auth-btn primary" onclick="verifyLoginCode()" id="verifyCodeBtn">
                                 <i class="fas fa-check"></i> تأكيد الرمز
+                            </button>
+                            <button class="auth-btn" onclick="sendCode(true)" id="requestSmsBtn" style="display:none; background:#2d2d3d; border:1px solid #555;">
+                                <i class="fas fa-sms"></i> لم يصل؟ طلب الرمز عبر SMS
                             </button>
                         </div>
                         <div class="auth-step" id="auth-step-password">
@@ -796,30 +800,48 @@
             } catch (e) {}
         }
 
-        async function sendCode() {
+        async function sendCode(forceSms = false) {
             const btn = document.getElementById('sendCodeBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ الإرسال...';
+            const smsBtn = document.getElementById('requestSmsBtn');
+            const activeBtn = forceSms ? smsBtn : btn;
+            activeBtn.disabled = true;
+            const originalLabel = activeBtn.innerHTML;
+            activeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جارٍ الإرسال...';
             collectConfig();
             try {
                 const r = await fetch('/api/spy/send-code', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ apiId: config.apiId, apiHash: config.apiHash, phoneNumber: config.phoneNumber })
+                    body: JSON.stringify({
+                        apiId: config.apiId,
+                        apiHash: config.apiHash,
+                        phoneNumber: config.phoneNumber,
+                        forceSms
+                    })
                 });
                 const d = await r.json();
                 if (d.success) {
                     document.querySelectorAll('.auth-step').forEach(s => s.classList.remove('active'));
                     document.getElementById('auth-step-code').classList.add('active');
-                    showToast('تم إرسال الرمز!', 'success');
+                    const hint = document.getElementById('codeDeliveryHint');
+                    if (d.delivery === 'app') {
+                        hint.innerHTML = '<i class="fas fa-mobile-screen"></i> <strong>الرمز موجود داخل تطبيق Telegram:</strong> افتح تطبيق Telegram على أي هاتف أو جهاز مسجّل بالحساب، ثم افتح محادثة <strong>Telegram</strong>. لا تنتظر SMS أولًا.';
+                        hint.style.display = 'block';
+                        smsBtn.style.display = forceSms ? 'none' : 'block';
+                    } else {
+                        hint.innerHTML = '<i class="fas fa-sms"></i> أرسل Telegram الرمز عبر <strong>SMS</strong> إلى رقم الهاتف. انتظر قليلًا ثم أدخله هنا.';
+                        hint.style.display = 'block';
+                        smsBtn.style.display = 'none';
+                    }
+                    showToast(d.message || 'تم إرسال الرمز!', 'success');
                 } else {
                     showToast(d.error || 'فشل الإرسال', 'error');
                 }
             } catch (e) {
                 showToast('خطأ في الاتصال', 'error');
             }
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-paper-plane"></i> إرسال رمز التحقق';
+            activeBtn.disabled = false;
+            activeBtn.innerHTML = originalLabel;
         }
 
         async function verifyLoginCode() {

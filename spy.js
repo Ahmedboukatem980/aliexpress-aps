@@ -56,6 +56,7 @@ const SPY_LOG_FILE = path.join(__dirname, 'spy_log.json');
 const SESSION_FILE = path.join(__dirname, 'spy_session.json');
 const PROCESSED_LINKS_FILE = path.join(__dirname, 'spy_processed.json');
 const AUTH_STATE_FILE = path.join(__dirname, 'spy_auth_state.json');
+const PENDING_AUTH_SESSION_FILE = path.join(__dirname, 'spy_pending_auth_session.json');
 
 const inFlightLinks = new Map(); // change to Map to track timeout
 const processedMessageIds = new Set();
@@ -1336,7 +1337,7 @@ loadPendingReviews();
 async function loadAuthState() {
   try {
     const dbState = await db.getAuthState();
-    if (dbState && Object.keys(dbState).length > 0) {
+    if (dbState && dbState.step && dbState.step !== 'idle') {
       authState = dbState;
       console.log(`✅ تم استعادة حالة المصادقة من قاعدة البيانات: ${authState.step}`);
       return authState;
@@ -1368,6 +1369,53 @@ async function saveAuthState() {
     fs.writeFileSync(AUTH_STATE_FILE, JSON.stringify(authState));
   } catch (e) {
     console.log(`⚠️ فشل حفظ حالة المصادقة في الملف: ${e.message}`);
+  }
+}
+
+async function savePendingAuthSession(session) {
+  let savedToDb = false;
+  let savedToFile = false;
+  try {
+    savedToDb = await db.saveTelegramSession(session, 'spy_pending_auth');
+  } catch (e) {
+    console.log(`⚠️ فشل حفظ جلسة المصادقة المؤقتة في DB: ${e.message}`);
+  }
+  try {
+    fs.writeFileSync(PENDING_AUTH_SESSION_FILE, JSON.stringify({ session }));
+    savedToFile = true;
+  } catch (e) {
+    console.log(`⚠️ فشل حفظ جلسة المصادقة المؤقتة في الملف: ${e.message}`);
+  }
+  return savedToDb || savedToFile;
+}
+
+async function loadPendingAuthSession() {
+  try {
+    const session = await db.getTelegramSession('spy_pending_auth');
+    if (session) return session;
+  } catch (e) {
+    console.log(`⚠️ فشل تحميل جلسة المصادقة المؤقتة من DB: ${e.message}`);
+  }
+  try {
+    if (fs.existsSync(PENDING_AUTH_SESSION_FILE)) {
+      return JSON.parse(fs.readFileSync(PENDING_AUTH_SESSION_FILE, 'utf8')).session || '';
+    }
+  } catch (e) {
+    console.log(`⚠️ فشل تحميل جلسة المصادقة المؤقتة من الملف: ${e.message}`);
+  }
+  return '';
+}
+
+async function clearPendingAuthSession() {
+  try {
+    await db.saveTelegramSession('', 'spy_pending_auth');
+  } catch (e) {
+    console.log(`⚠️ فشل مسح جلسة المصادقة المؤقتة من DB: ${e.message}`);
+  }
+  try {
+    if (fs.existsSync(PENDING_AUTH_SESSION_FILE)) fs.unlinkSync(PENDING_AUTH_SESSION_FILE);
+  } catch (e) {
+    console.log(`⚠️ فشل مسح جلسة المصادقة المؤقتة من الملف: ${e.message}`);
   }
 }
 
@@ -3149,7 +3197,7 @@ async function stopSpy() {
   console.log('🛑 تم إيقاف نظام التجسس');
 }
 
-async function sendLoginCode(config) {
+async function sendLoginCode(config, forceSms = false) {
   let TelegramClient, StringSession;
   try {
     TelegramClient = require('telegram').TelegramClient;
@@ -3176,23 +3224,55 @@ async function sendLoginCode(config) {
 
   const result = await spyClient.sendCode(
     { apiId, apiHash },
-    phoneNumber
+    phoneNumber,
+    forceSms
   );
 
   if (!result.phoneCodeHash) {
     throw new Error('فشل إرسال الرمز - لم يتم استلام رمز من تيليجرام');
   }
-  
+
+  const pendingSession = spyClient.session.save();
+  if (!pendingSession || !(await savePendingAuthSession(pendingSession))) {
+    throw new Error('تعذّر حفظ جلسة المصادقة المؤقتة. أعد المحاولة بعد التحقق من التخزين الدائم.');
+  }
+
   authState = { step: 'code_sent', phoneCodeHash: result.phoneCodeHash, phoneNumber };
   await saveAuthState();
-  console.log('✅ تم حفظ حالة الرمز المرسل، في انتظار التحقق');
-  return { success: true, message: 'تم إرسال رمز التحقق إلى تيليجرام' };
+  const delivery = result.isCodeViaApp ? 'app' : 'sms';
+  console.log(`✅ تم حفظ حالة الرمز المرسل، في انتظار التحقق (الوجهة: ${delivery})`);
+  return {
+    success: true,
+    delivery,
+    message: result.isCodeViaApp
+      ? 'أرسل Telegram الرمز داخل تطبيق Telegram على جهاز مسجّل مسبقًا.'
+      : 'تم إرسال رمز التحقق عبر SMS إلى رقم الهاتف.'
+  };
 }
 
 async function verifyCode(config, code, password) {
-  if (!spyClient) throw new Error('ابدأ بإرسال رمز التحقق أولاً');
+  await loadAuthState();
   if (authState.step !== 'code_sent' && authState.step !== 'need_password') {
     throw new Error('ابدأ بإرسال رمز التحقق أولاً');
+  }
+
+  if (!spyClient) {
+    let TelegramClient, StringSession;
+    try {
+      TelegramClient = require('telegram').TelegramClient;
+      StringSession = require('telegram/sessions').StringSession;
+    } catch (e) {
+      throw new Error('مكتبة telegram غير مثبّتة — ميزة التجسس غير متاحة في هذه البيئة');
+    }
+    const apiId = parseInt(config.apiId);
+    const apiHash = config.apiHash;
+    const pendingSession = await loadPendingAuthSession();
+    if (!apiId || !apiHash || !pendingSession) {
+      throw new Error('انتهت جلسة المصادقة. أرسل رمز تحقق جديدًا.');
+    }
+    spyClient = new TelegramClient(new StringSession(pendingSession), apiId, apiHash, { connectionRetries: 5 });
+    await spyClient.connect();
+    console.log('✅ تم استعادة جلسة المصادقة المؤقتة بعد إعادة تشغيل الخادم');
   }
 
   try {
@@ -3245,6 +3325,7 @@ async function verifyCode(config, code, password) {
     
     authState = { step: 'authenticated' };
     await saveAuthState();
+    await clearPendingAuthSession();
 
     await spyClient.disconnect();
     spyClient = null;

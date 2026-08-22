@@ -1,0 +1,1 @@
+- [Telegram code delivery](telegram-code-delivery.md) — Login codes may arrive inside Telegram rather than by SMS; always surface the delivery route.
