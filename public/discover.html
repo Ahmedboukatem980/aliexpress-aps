@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>اكتشف المنتجات الرابحة - AffiliDz</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -17,7 +17,7 @@
             overflow: hidden;
         }
         .header::before { content: ''; position: absolute; top: -40%; right: -25%; width: 280px; height: 280px; background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%); border-radius: 50%; }
-        .header::after { content: ''; position: absolute; bottom: -55%; left: -10%; right: -10%; height: 75%; background: var(--bg-primary); border-radius: 50% 50% 0 0; }
+        .header::after { content: ''; position: absolute; bottom: -55%; left: 0; right: 0; height: 75%; background: var(--bg-primary); border-radius: 50% 50% 0 0; }
         .header > * { position: relative; z-index: 2; }
         .header h1 { font-size: 26px; font-weight: 800; margin-bottom: 8px; text-shadow: 0 2px 10px rgba(0,0,0,0.2); }
         .header p { opacity: 0.85; font-size: 14px; }
@@ -46,6 +46,155 @@
         .back-btn:hover { background: rgba(255,255,255,0.2); }
         
         .content { padding: 20px; margin-top: -30px; position: relative; z-index: 10; }
+
+        .flash-section {
+            background: linear-gradient(145deg, rgba(124,58,237,0.16), rgba(22,18,42,0.92));
+            border: 1px solid rgba(167,139,250,0.26);
+            border-radius: var(--radius-lg);
+            padding: 18px;
+            margin-bottom: 20px;
+            box-shadow: 0 14px 35px rgba(0,0,0,0.18);
+        }
+        .flash-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .flash-kicker {
+            color: #C4B5FD;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .flash-section-title {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            font-size: 19px;
+            margin: 0;
+        }
+        .flash-section-title i { color: #FB923C; }
+        .flash-section-subtitle {
+            color: var(--text-secondary);
+            font-size: 12px;
+            margin-top: 5px;
+            line-height: 1.6;
+        }
+        .flash-refresh-btn, .flash-ai-btn {
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: var(--radius-sm);
+            color: #fff;
+            font-family: 'Cairo', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            white-space: nowrap;
+        }
+        .flash-refresh-btn {
+            background: rgba(255,255,255,0.08);
+            width: 38px;
+            height: 38px;
+        }
+        .flash-refresh-btn:hover, .flash-ai-btn:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.28); }
+        .flash-refresh-btn:disabled, .flash-ai-btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+        .flash-loading {
+            display: none;
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 22px 10px;
+        }
+        .flash-loading.show { display: block; }
+        .flash-loading i { color: #A78BFA; font-size: 22px; }
+        .flash-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+        .flash-card {
+            background: rgba(13, 12, 29, 0.78);
+            border: 1px solid rgba(255,255,255,0.09);
+            border-radius: var(--radius-md);
+            padding: 9px;
+            min-width: 0;
+            transition: transform var(--transition-fast), border-color var(--transition-fast);
+        }
+        .flash-card:hover { transform: translateY(-2px); border-color: rgba(167,139,250,0.55); }
+        .flash-image-wrap { position: relative; }
+        .flash-image {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            border-radius: 10px;
+            background: var(--bg-input);
+            display: block;
+        }
+        .flash-discount {
+            position: absolute;
+            top: 7px;
+            right: 7px;
+            background: linear-gradient(135deg, #F97316, #DC2626);
+            color: #fff;
+            border-radius: 7px;
+            padding: 3px 7px;
+            font-size: 10px;
+            font-weight: 800;
+        }
+        .flash-card-title {
+            font-size: 11px;
+            line-height: 1.45;
+            margin: 8px 1px 5px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            min-height: 32px;
+        }
+        .flash-price-line { display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap; }
+        .flash-price { color: #FDBA74; font-size: 15px; font-weight: 800; }
+        .flash-old-price { color: var(--text-muted); font-size: 10px; text-decoration: line-through; }
+        .flash-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 7px; }
+        .flash-rating { color: #FCD34D; font-size: 10px; }
+        .flash-use-btn {
+            background: linear-gradient(135deg, #7C3AED, #6D28D9);
+            color: #fff;
+            border: 0;
+            border-radius: 7px;
+            font-family: 'Cairo', sans-serif;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 5px 8px;
+            cursor: pointer;
+        }
+        .flash-empty, .flash-error {
+            color: var(--text-secondary);
+            text-align: center;
+            font-size: 12px;
+            padding: 18px 8px 10px;
+            line-height: 1.7;
+        }
+        .flash-error { color: #FCA5A5; }
+        .flash-ai-panel {
+            display: none;
+            margin: 14px 0 12px;
+            padding: 12px 13px;
+            background: rgba(124,58,237,0.16);
+            border: 1px solid rgba(167,139,250,0.23);
+            border-radius: var(--radius-md);
+        }
+        .flash-ai-panel.show { display: block; }
+        .flash-ai-panel strong { color: #DDD6FE; font-size: 13px; }
+        .flash-ai-panel p { color: var(--text-secondary); font-size: 12px; line-height: 1.7; margin: 5px 0 0; }
+        .flash-ai-tip { color: #C4B5FD !important; font-size: 11px !important; }
+        .flash-tools { display: flex; justify-content: flex-start; margin-top: 12px; }
+        .flash-ai-btn {
+            background: rgba(124,58,237,0.35);
+            padding: 8px 11px;
+            font-size: 11px;
+        }
         
         .filter-card {
             background: var(--bg-card);
@@ -93,9 +242,12 @@
             display: flex;
             gap: 10px;
             margin-bottom: 15px;
+            min-width: 0;
         }
         .price-input {
             flex: 1;
+            width: 0;
+            min-width: 0;
             background: var(--bg-input);
             border: 1.5px solid var(--border-subtle);
             border-radius: var(--radius-sm);
@@ -119,14 +271,15 @@
             padding: 12px 15px;
             margin-bottom: 15px;
         }
-        .ai-toggle label { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-        .ai-toggle label i { color: var(--accent-purple); }
+        .ai-toggle-label { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .ai-toggle-label i { color: var(--accent-purple); }
         .toggle-switch {
             position: relative;
             width: 50px;
             height: 26px;
         }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-switch input:focus-visible + .toggle-slider { outline: 2px solid #C4B5FD; outline-offset: 3px; }
         .toggle-slider {
             position: absolute;
             cursor: pointer;
@@ -272,6 +425,24 @@
             font-size: 9px;
             padding: 3px 8px;
             border-radius: 10px;
+        }
+        .ai-selection-note {
+            display: none;
+            background: var(--accent-purple-glow);
+            border: 1px solid rgba(124,58,237,0.2);
+            border-radius: var(--radius-sm);
+            padding: 10px 12px;
+            color: #C4B5FD;
+            font-size: 12px;
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+        .ai-selection-note.show { display: block; }
+        .product-ai-reason {
+            color: #C4B5FD;
+            font-size: 10px;
+            line-height: 1.5;
+            margin-bottom: 6px;
         }
         
         .product-image-container {
@@ -473,6 +644,34 @@
     </div>
 
     <div class="content">
+        <section class="flash-section" aria-labelledby="flashDealsTitle">
+            <div class="flash-section-header">
+                <div>
+                    <div class="flash-kicker">AliExpress API</div>
+                    <h2 class="flash-section-title" id="flashDealsTitle"><i class="fas fa-bolt"></i> عروض الفلاش</h2>
+                    <p class="flash-section-subtitle">تخفيضات 30% أو أكثر، مرتبة من الأقوى إلى الأقل.</p>
+                </div>
+                <button class="flash-refresh-btn" id="flashRefreshBtn" title="تحديث عروض الفلاش" aria-label="تحديث عروض الفلاش">
+                    <i class="fas fa-rotate"></i>
+                </button>
+            </div>
+            <div class="flash-loading" id="flashLoading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <div>جاري جلب عروض الفلاش من AliExpress...</div>
+            </div>
+            <div class="flash-ai-panel" id="flashAiPanel">
+                <strong id="flashAiHeadline"></strong>
+                <p id="flashAiBody"></p>
+                <p class="flash-ai-tip" id="flashAiTip"></p>
+            </div>
+            <div class="flash-grid" id="flashGrid"></div>
+            <div class="flash-empty" id="flashEmpty" style="display:none;">لا توجد حاليًا عروض بتخفيض 30% أو أكثر.</div>
+            <div class="flash-error" id="flashError" style="display:none;"></div>
+            <div class="flash-tools">
+                <button class="flash-ai-btn" id="flashAiBtn" disabled><i class="fas fa-brain"></i> حسّن ملخص العروض بالذكاء الاصطناعي</button>
+            </div>
+        </section>
+
         <div class="filter-card">
             <div class="filter-title"><i class="fas fa-filter"></i> تصفية البحث</div>
             
@@ -518,11 +717,11 @@
             <div class="suggested-keywords" id="suggestedKeywords"></div>
             
             <div class="ai-toggle">
-                <label><i class="fas fa-brain"></i> ترتيب ذكي بالذكاء الاصطناعي</label>
-                <div class="toggle-switch">
-                    <input type="checkbox" id="useAI">
+                <label class="ai-toggle-label" for="useAI"><i class="fas fa-brain"></i> اختيار المنتجات المناسبة للنشر عبر OpenRouter</label>
+                <label class="toggle-switch" aria-label="تفعيل اختيار OpenRouter للمنتجات">
+                    <input type="checkbox" id="useAI" aria-label="تفعيل اختيار OpenRouter للمنتجات">
                     <span class="toggle-slider"></span>
-                </div>
+                </label>
             </div>
             
             <button class="search-btn" id="searchBtn">
@@ -541,10 +740,11 @@
         </div>
         
         <div class="results" id="results">
-            <div class="section-title">
+                <div class="section-title">
                 <i class="fas fa-fire" style="color: #FF6B35;"></i>
                 <span id="resultsCount">0</span> منتج مقترح
             </div>
+                <div class="ai-selection-note" id="aiSelectionNote"></div>
             <div class="products-grid" id="productsGrid"></div>
         </div>
     </div>
@@ -564,12 +764,181 @@
     <script>
         let selectedCategory = null;
         let currentProducts = [];
+        let currentFlashDeals = [];
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+            }[char]));
+        }
+
+        function imageFallbackSvg() {
+            return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><rect fill="#1a1a2e" width="300" height="300"/><text fill="#777" x="150" y="155" text-anchor="middle" font-size="18">No Image</text></svg>');
+        }
+
+        async function loadFlashDeals() {
+            const grid = document.getElementById('flashGrid');
+            const loading = document.getElementById('flashLoading');
+            const empty = document.getElementById('flashEmpty');
+            const error = document.getElementById('flashError');
+            const refresh = document.getElementById('flashRefreshBtn');
+            const aiBtn = document.getElementById('flashAiBtn');
+            grid.replaceChildren();
+            empty.style.display = 'none';
+            error.style.display = 'none';
+            loading.classList.add('show');
+            refresh.disabled = true;
+            aiBtn.disabled = true;
+
+            const params = new URLSearchParams({
+                limit: '10',
+                minPrice: document.getElementById('minPrice').value || '1',
+                maxPrice: document.getElementById('maxPrice').value || '50'
+            });
+            if (selectedCategory) params.set('category', selectedCategory);
+            const keywords = document.getElementById('keywordsInput').value.trim();
+            if (keywords) params.set('keywords', keywords);
+
+            try {
+                const response = await fetch('/api/flash-deals?' + params.toString());
+                const data = await response.json();
+                if (!response.ok || !data.success) throw new Error(data.error || 'تعذر جلب العروض');
+                if (data.configured === false) {
+                    error.textContent = data.message || 'ربط AliExpress API غير مُعَدّ بعد.';
+                    error.style.display = 'block';
+                    return;
+                }
+                currentFlashDeals = Array.isArray(data.products) ? data.products : [];
+                if (currentFlashDeals.length === 0) {
+                    empty.style.display = 'block';
+                } else {
+                    renderFlashDeals(currentFlashDeals);
+                    aiBtn.disabled = false;
+                }
+            } catch (loadError) {
+                currentFlashDeals = [];
+                error.textContent = loadError.message || 'تعذر جلب عروض الفلاش';
+                error.style.display = 'block';
+            } finally {
+                loading.classList.remove('show');
+                refresh.disabled = false;
+            }
+        }
+
+        function renderFlashDeals(products) {
+            const grid = document.getElementById('flashGrid');
+            grid.replaceChildren();
+            const addIcon = (parent, iconClass) => {
+                const icon = document.createElement('i');
+                icon.className = `fas ${iconClass}`;
+                parent.appendChild(icon);
+            };
+
+            products.forEach((product, index) => {
+                const price = product.price || product.sale_price || '—';
+                const oldPrice = product.original_price && String(product.original_price) !== String(price)
+                    ? product.original_price
+                    : '';
+                const card = document.createElement('article');
+                card.className = 'flash-card';
+
+                const imageWrap = document.createElement('div');
+                imageWrap.className = 'flash-image-wrap';
+                const image = document.createElement('img');
+                image.className = 'flash-image';
+                image.src = safeProductImageUrl(product.image_url);
+                image.alt = String(product.title || 'عرض فلاش');
+                image.addEventListener('error', () => {
+                    if (image.src !== imageFallbackSvg()) image.src = imageFallbackSvg();
+                }, { once: true });
+                imageWrap.appendChild(image);
+                const discount = document.createElement('span');
+                discount.className = 'flash-discount';
+                discount.textContent = `-${product.discount}%`;
+                imageWrap.appendChild(discount);
+                card.appendChild(imageWrap);
+
+                const title = document.createElement('div');
+                title.className = 'flash-card-title';
+                title.textContent = String(product.title || 'منتج من AliExpress');
+                card.appendChild(title);
+
+                const priceLine = document.createElement('div');
+                priceLine.className = 'flash-price-line';
+                const currentPrice = document.createElement('span');
+                currentPrice.className = 'flash-price';
+                currentPrice.textContent = `${price} ${product.currency || 'USD'}`;
+                priceLine.appendChild(currentPrice);
+                if (oldPrice) {
+                    const previousPrice = document.createElement('span');
+                    previousPrice.className = 'flash-old-price';
+                    previousPrice.textContent = String(oldPrice);
+                    priceLine.appendChild(previousPrice);
+                }
+                card.appendChild(priceLine);
+
+                const footer = document.createElement('div');
+                footer.className = 'flash-card-footer';
+                const rating = document.createElement('span');
+                rating.className = 'flash-rating';
+                if (product.rating) {
+                    addIcon(rating, 'fa-star');
+                    rating.appendChild(document.createTextNode(` ${product.rating}`));
+                }
+                footer.appendChild(rating);
+                const useButton = document.createElement('button');
+                useButton.className = 'flash-use-btn';
+                useButton.textContent = 'افتح العرض';
+                useButton.addEventListener('click', () => useFlashProduct(index));
+                footer.appendChild(useButton);
+                card.appendChild(footer);
+                grid.appendChild(card);
+            });
+        }
+
+        function useFlashProduct(index) {
+            const product = currentFlashDeals[index];
+            const url = product && (product.promotion_link || product.product_url);
+            if (!url) {
+                showToast('لا يوجد رابط صالح لهذا العرض');
+                return;
+            }
+            localStorage.setItem('pendingProductUrl', url);
+            window.location.href = '/';
+        }
+
+        document.getElementById('flashRefreshBtn').addEventListener('click', loadFlashDeals);
+        document.getElementById('flashAiBtn').addEventListener('click', async function() {
+            if (!currentFlashDeals.length) return;
+            const button = this;
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري تحسين الملخص...';
+            try {
+                const response = await fetch('/api/ai-flash-deals-summary', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ products: currentFlashDeals })
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success || !data.summary) throw new Error(data.error || 'فشل تحسين الملخص');
+                document.getElementById('flashAiHeadline').textContent = data.summary.headline;
+                document.getElementById('flashAiBody').textContent = data.summary.body;
+                document.getElementById('flashAiTip').textContent = 'نصيحة: ' + data.summary.tip;
+                document.getElementById('flashAiPanel').classList.add('show');
+            } catch (aiError) {
+                showToast(aiError.message || 'تعذر تحسين الملخص');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-brain"></i> حسّن ملخص العروض بالذكاء الاصطناعي';
+            }
+        });
         
         document.querySelectorAll('.category-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
                 selectedCategory = this.dataset.category;
+                loadFlashDeals();
             });
         });
         
@@ -637,13 +1006,24 @@
                 
                 const data = await response.json();
                 
-                if (data.success && data.products) {
+                if (data.success && Array.isArray(data.products) && data.products.length > 0) {
                     currentProducts = data.products;
                     renderProducts(data.products);
                     document.getElementById('resultsCount').textContent = data.products.length;
+                    const selectionNote = document.getElementById('aiSelectionNote');
+                    if (useAI && data.selectionApplied) {
+                        selectionNote.textContent = data.selectionMethod === 'openrouter'
+                            ? 'تم اختيار هذه المنتجات عبر OpenRouter لأنها تجمع بين التخفيض، السعر، التقييم، ومؤشرات الطلب.'
+                            : 'تم ترتيب أفضل المنتجات تلقائيًا حسب التخفيض ومؤشرات الجودة المتاحة.';
+                        selectionNote.classList.add('show');
+                    } else {
+                        selectionNote.classList.remove('show');
+                    }
                     document.getElementById('results').classList.add('show');
                 } else {
-                    showToast(data.error || 'لم يتم العثور على منتجات');
+                    currentProducts = [];
+                    document.getElementById('aiSelectionNote').classList.remove('show');
+                    showToast(data.message || data.error || 'لم يتم العثور على منتجات مناسبة للنشر');
                     document.getElementById('emptyState').style.display = 'block';
                 }
             } catch (error) {
@@ -655,36 +1035,123 @@
             this.disabled = false;
         });
         
+        function safeProductImageUrl(value) {
+            try {
+                const url = new URL(String(value || '/placeholder.png'), window.location.origin);
+                return ['http:', 'https:'].includes(url.protocol) ? url.href : '/placeholder.png';
+            } catch {
+                return '/placeholder.png';
+            }
+        }
+
         function renderProducts(products) {
             const grid = document.getElementById('productsGrid');
-            grid.innerHTML = products.map((p, index) => `
-                <div class="product-card ${p.aiRanked ? 'ai-ranked' : ''}" style="position: relative;">
-                    ${p.aiRanked ? '<div style="position: absolute; top: 8px; right: 8px; background: #9C27B0; color: #fff; font-size: 9px; padding: 3px 8px; border-radius: 10px;"><i class="fas fa-brain"></i> مقترح</div>' : ''}
-                    <div class="product-image-container">
-                        <img class="product-image" src="${p.image_url || '/placeholder.png'}" alt="${p.title}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><rect fill=%22%231a1a2e%22 width=%22100%22 height=%22100%22/><text fill=%22%23666%22 x=%2250%22 y=%2255%22 text-anchor=%22middle%22 font-size=%2212%22>No Image</text></svg>'">
-                        ${p.discount ? `<span class="product-discount-badge">-${p.discount}%</span>` : ''}
-                    </div>
-                    <div class="product-info">
-                        <div class="product-title">${p.title}</div>
-                        <div class="product-meta">
-                            ${p.orders ? `<span><i class="fas fa-shopping-cart"></i> ${p.orders} طلب</span>` : ''}
-                            ${p.rating ? `<span><i class="fas fa-star"></i> ${p.rating}</span>` : ''}
-                        </div>
-                        <div class="product-price-row">
-                            <span class="product-price">${p.price || p.sale_price} ${p.currency || 'USD'}</span>
-                            ${p.original_price && p.original_price !== p.price ? `<span class="product-original-price">${p.original_price}</span>` : ''}
-                        </div>
-                        <div class="product-actions">
-                            <button class="action-btn use-btn" onclick="useProduct(${index})">
-                                <i class="fas fa-plus"></i> استخدم
-                            </button>
-                            <button class="action-btn analyze-btn" onclick="analyzeProduct(${index})">
-                                <i class="fas fa-chart-line"></i> حلل
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
+            grid.replaceChildren();
+
+            const addIcon = (parent, iconClass) => {
+                const icon = document.createElement('i');
+                icon.className = `fas ${iconClass}`;
+                parent.appendChild(icon);
+            };
+            const addText = (parent, text) => parent.appendChild(document.createTextNode(String(text ?? '')));
+
+            products.forEach((p, index) => {
+                const card = document.createElement('div');
+                card.className = 'product-card';
+                card.style.position = 'relative';
+                if (p.aiRanked) card.classList.add('ai-ranked');
+
+                if (p.aiRecommended) {
+                    const recommendation = document.createElement('div');
+                    recommendation.style.cssText = 'position:absolute;top:8px;right:8px;background:#9C27B0;color:#fff;font-size:9px;padding:3px 8px;border-radius:10px;';
+                    addIcon(recommendation, 'fa-brain');
+                    addText(recommendation, ' يستحق النشر');
+                    card.appendChild(recommendation);
+                }
+
+                const imageContainer = document.createElement('div');
+                imageContainer.className = 'product-image-container';
+                const image = document.createElement('img');
+                image.className = 'product-image';
+                image.src = safeProductImageUrl(p.image_url);
+                image.alt = String(p.title || 'منتج بدون اسم');
+                image.addEventListener('error', () => {
+                    if (image.src !== imageFallbackSvg()) image.src = imageFallbackSvg();
+                }, { once: true });
+                imageContainer.appendChild(image);
+
+                if (p.discount) {
+                    const badge = document.createElement('span');
+                    badge.className = 'product-discount-badge';
+                    badge.textContent = `-${p.discount}%`;
+                    imageContainer.appendChild(badge);
+                }
+                card.appendChild(imageContainer);
+
+                const info = document.createElement('div');
+                info.className = 'product-info';
+                const title = document.createElement('div');
+                title.className = 'product-title';
+                title.textContent = String(p.title || 'منتج بدون اسم');
+                info.appendChild(title);
+
+                if (p.aiReason) {
+                    const reason = document.createElement('div');
+                    reason.className = 'product-ai-reason';
+                    addIcon(reason, 'fa-wand-magic-sparkles');
+                    addText(reason, ` ${p.aiReason}`);
+                    info.appendChild(reason);
+                }
+
+                const meta = document.createElement('div');
+                meta.className = 'product-meta';
+                if (p.orders) {
+                    const orders = document.createElement('span');
+                    addIcon(orders, 'fa-shopping-cart');
+                    addText(orders, ` ${p.orders} طلب`);
+                    meta.appendChild(orders);
+                }
+                if (p.rating) {
+                    const rating = document.createElement('span');
+                    addIcon(rating, 'fa-star');
+                    addText(rating, ` ${p.rating}`);
+                    meta.appendChild(rating);
+                }
+                info.appendChild(meta);
+
+                const priceRow = document.createElement('div');
+                priceRow.className = 'product-price-row';
+                const price = document.createElement('span');
+                price.className = 'product-price';
+                price.textContent = `${p.price || p.sale_price || '—'} ${p.currency || 'USD'}`;
+                priceRow.appendChild(price);
+                if (p.original_price && p.original_price !== p.price) {
+                    const originalPrice = document.createElement('span');
+                    originalPrice.className = 'product-original-price';
+                    originalPrice.textContent = String(p.original_price);
+                    priceRow.appendChild(originalPrice);
+                }
+                info.appendChild(priceRow);
+
+                const actions = document.createElement('div');
+                actions.className = 'product-actions';
+                const useButton = document.createElement('button');
+                useButton.className = 'action-btn use-btn';
+                addIcon(useButton, 'fa-plus');
+                addText(useButton, ' استخدم');
+                useButton.addEventListener('click', () => useProduct(index));
+                actions.appendChild(useButton);
+                const analyzeButton = document.createElement('button');
+                analyzeButton.className = 'action-btn analyze-btn';
+                addIcon(analyzeButton, 'fa-chart-line');
+                addText(analyzeButton, ' حلل');
+                analyzeButton.addEventListener('click', () => analyzeProduct(index));
+                actions.appendChild(analyzeButton);
+                info.appendChild(actions);
+
+                card.appendChild(info);
+                grid.appendChild(card);
+            });
         }
         
         function useProduct(index) {
@@ -770,6 +1237,7 @@
         }
         
         window.addEventListener('load', () => {
+            loadFlashDeals();
             const pendingUrl = localStorage.getItem('pendingProductUrl');
             if (pendingUrl) {
                 localStorage.removeItem('pendingProductUrl');

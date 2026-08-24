@@ -405,4 +405,49 @@ async function searchProducts(options = {}) {
     return { success: false, error: lastError || 'Failed to search products' };
 }
 
-module.exports = { getProductDetails, searchHotProducts, searchProducts };
+function parsePriceNumber(value) {
+    if (value === null || value === undefined) return null;
+    const normalized = String(value).replace(',', '.').replace(/[^0-9.]/g, '');
+    const parsed = Number.parseFloat(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function calculateDiscountPercent(product) {
+    const explicit = parsePriceNumber(product.discount);
+    const current = parsePriceNumber(product.sale_price || product.price);
+    const original = parsePriceNumber(product.original_price);
+    if (current === null || original === null || original <= current || original <= 0) return 0;
+    const calculated = Math.round(((original - current) / original) * 100);
+
+    // لا نعتمد على النسبة التي يعلنها المصدر إن كانت مخالفة للأسعار الفعلية.
+    if (explicit !== null && explicit > 0 && explicit !== calculated) return 0;
+    return calculated;
+}
+
+// عروض الفلاش: نطلب المنتجات مرتبة بالتخفيض ثم نُبقي فقط التخفيضات الحقيقية
+// (30% أو أكثر) حتى لا تظهر المنتجات العادية داخل القسم.
+async function searchFlashDeals(options = {}) {
+    const result = await searchProducts({
+        ...options,
+        // ترتيب مدعوم من AliExpress؛ يتم ترتيب التخفيضات محلياً بعد الجلب.
+        sort: options.sort || 'LAST_VOLUME_DESC',
+        limit: options.limit || '30'
+    });
+    if (!result.success) return result;
+
+    const products = (result.products || [])
+        .map(product => ({
+            ...product,
+            discount: calculateDiscountPercent(product)
+        }))
+        .filter(product => product.discount >= 30)
+        .sort((a, b) => b.discount - a.discount);
+
+    return {
+        ...result,
+        total: products.length,
+        products
+    };
+}
+
+module.exports = { getProductDetails, searchHotProducts, searchProducts, searchFlashDeals };

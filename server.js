@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
 const { portaffFunction, fetchLinkPreview, idCatcher } = require('./afflink');
-const { searchHotProducts, searchProducts, getProductDetails } = require('./aliexpress-api');
+const { searchHotProducts, searchProducts, getProductDetails, searchFlashDeals } = require('./aliexpress-api');
 const { Telegraf } = require('telegraf');
 const { PostScheduler } = require('./scheduler');
 const { RepublishManager } = require('./republish');
@@ -1681,6 +1681,75 @@ async function runOpenRouterAlgerianHook(title, price = '') {
   return hook;
 }
 
+async function runOpenRouterProductSelection(products) {
+  const apiKey = String(process.env.OPENROUTER_API_KEY || '').trim();
+  if (!apiKey) throw new Error('OPENROUTER_API_KEY غير مضبوط');
+  const model = String(
+    process.env.OPENROUTER_SELECTION_MODEL || 'google/gemini-2.0-flash-lite-001'
+  ).trim();
+  if (!model || model === 'openrouter/auto') {
+    throw new Error('يجب ضبط نموذج OpenRouter مخصص ومنخفض التكلفة للاختيار');
+  }
+
+  const productLines = products.map((product, index) => (
+    `${index + 1}. ${String(product.title || '').slice(0, 140)} | السعر: ${product.price || product.sale_price || '—'} ${product.currency || 'USD'} | التخفيض: ${product.discount || 0}% | التقييم: ${product.rating || '—'} | الطلبات: ${product.orders || '—'}`
+  )).join('\n');
+  const response = await axios.post(
+    'https://openrouter.ai/api/v1/chat/completions',
+    {
+      model,
+      messages: [
+        {
+          role: 'system',
+          content: 'أنت خبير اختيار منتجات للتسويق بالعمولة في الجزائر. أعد JSON فقط، ولا تخترع أي منتج أو معلومة.'
+        },
+        {
+          role: 'user',
+          content: `اختر فقط المنتجات التي تستحق النشر والشراء فعلاً. أعط الأولوية لتخفيض حقيقي 30% أو أكثر، سعر منطقي، تقييم جيد، وعدد طلبات يثبت وجود الطلب. استبعد المنتجات التي تبدو رديئة أو تخفيضها غير مقنع.
+
+المنتجات:
+${productLines}
+
+أعد JSON فقط بهذا الشكل:
+{"selected":[{"index":1,"score":92,"reason":"سبب قصير بالدارجة الجزائرية"}]}
+
+استخدم أرقام المنتجات الموجودة فقط، واختر من 1 إلى ${Math.min(products.length, 8)} منتجات. إذا لم توجد منتجات تستحق النشر أعد selected كمصفوفة فارغة.`
+        }
+      ],
+      temperature: 0.2,
+      max_tokens: 300
+    },
+    {
+      timeout: 20000,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'X-Title': 'AffiliDz Product Selection'
+      }
+    }
+  );
+
+  const content = response.data?.choices?.[0]?.message?.content;
+  const jsonMatch = String(content || '').match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('OpenRouter لم يُرجع JSON صالحاً');
+  const parsed = JSON.parse(jsonMatch[0]);
+  if (!Array.isArray(parsed?.selected)) throw new Error('OpenRouter لم يُرجع قائمة اختيار صالحة');
+  const selected = parsed.selected;
+  const valid = [];
+  const used = new Set();
+  for (const item of selected) {
+    const index = Number.parseInt(item?.index, 10);
+    if (!Number.isInteger(index) || index < 1 || index > products.length || used.has(index)) continue;
+    used.add(index);
+    valid.push({
+      index,
+      score: Math.min(Math.max(Number(item.score) || 0, 0), 100),
+      reason: String(item.reason || 'تخفيض مليح ومنتج عليه طلب').trim().slice(0, 180)
+    });
+  }
+  return valid;
+}
+
 app.post('/api/ai-refine-title', async (req, res) => {
   try {
     const { title, isHook } = req.body;
@@ -2385,9 +2454,87 @@ const algerianCategories = {
   'sports': { id: '18', nameAr: 'رياضة', keywords: ['fitness', 'outdoor', 'camping', 'cycling'] }
 };
 
+const discoverAiRateLimit = new Map();
+const DISCOVER_AI_WINDOW_MS = 60 * 1000;
+const DISCOVER_AI_MAX_REQUESTS = 5;
+const DISCOVER_AI_GLOBAL_WINDOW_MS = 60 * 60 * 1000;
+const DISCOVER_AI_GLOBAL_MAX_REQUESTS = 40;
+const DISCOVER_AI_MAX_CONCURRENT = 2;
+let discoverAiActiveRequests = 0;
+let discoverAiGlobalUsage = { startedAt: Date.now(), count: 0 };
+
+function acquireDiscoverAiRequest(req) {
+  const ip = (req.ip || req.connection?.remoteAddress || 'unknown').replace('::ffff:', '');
+  const now = Date.now();
+  for (const [key, entry] of discoverAiRateLimit.entries()) {
+    if (now - entry.startedAt >= DISCOVER_AI_WINDOW_MS) discoverAiRateLimit.delete(key);
+  }
+  if (now - discoverAiGlobalUsage.startedAt >= DISCOVER_AI_GLOBAL_WINDOW_MS) {
+    discoverAiGlobalUsage = { startedAt: now, count: 0 };
+  }
+
+  const previous = discoverAiRateLimit.get(ip);
+  if (previous && previous.count >= DISCOVER_AI_MAX_REQUESTS) return null;
+  if (discoverAiGlobalUsage.count >= DISCOVER_AI_GLOBAL_MAX_REQUESTS) return null;
+  if (discoverAiActiveRequests >= DISCOVER_AI_MAX_CONCURRENT) return null;
+
+  if (previous) previous.count += 1;
+  else discoverAiRateLimit.set(ip, { startedAt: now, count: 1 });
+  discoverAiGlobalUsage.count += 1;
+  discoverAiActiveRequests += 1;
+
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    discoverAiActiveRequests = Math.max(0, discoverAiActiveRequests - 1);
+  };
+}
+
+function parseProductMetric(value) {
+  if (value === null || value === undefined) return 0;
+  const parsed = Number.parseFloat(String(value).replace(',', '.').replace(/[^0-9.]/g, ''));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getPublishDiscount(product) {
+  const explicit = parseProductMetric(product.discount);
+  const current = parseProductMetric(product.sale_price || product.price);
+  const original = parseProductMetric(product.original_price);
+  if (current <= 0 || original <= current || original <= 0) return 0;
+  const calculated = Math.round(((original - current) / original) * 100);
+  if (explicit > 0 && explicit !== calculated) return 0;
+  return calculated;
+}
+
+function rankProductsForPublishing(products) {
+  return [...products]
+    .map(product => {
+      const discount = getPublishDiscount(product);
+      const rating = Math.min(parseProductMetric(product.rating), 5);
+      const orders = Math.log10(Math.max(parseProductMetric(product.orders), 1));
+      const publishScore = Math.round(Math.min(100, (discount * 1.5) + (rating * 8) + Math.min(orders * 4, 20)));
+      return { ...product, discount, publishScore };
+    })
+    .filter(product => product.discount >= 30)
+    .sort((a, b) => b.publishScore - a.publishScore);
+}
+
 app.post('/api/discover-products', async (req, res) => {
   try {
     const { category, keywords, minPrice, maxPrice, limit, useAI } = req.body;
+    const hasAliExpressCredentials = Boolean(
+      String(process.env.ALIEXPRESS_APP_KEY || '').trim() &&
+      String(process.env.ALIEXPRESS_APP_SECRET || '').trim()
+    );
+    if (!hasAliExpressCredentials) {
+      return res.json({
+        success: true,
+        configured: false,
+        products: [],
+        message: 'ربط AliExpress API غير مُعَدّ في هذه البيئة بعد.'
+      });
+    }
     
     const searchOptions = {
       limit: limit || '10',
@@ -2409,49 +2556,242 @@ app.post('/api/discover-products', async (req, res) => {
     }
 
     let products = result.products || [];
+    let selectionMethod = null;
 
-    if (useAI && products.length > 0 && getGeminiModel()) {
-      try {
-        const productTitles = products.slice(0, 5).map((p, i) => `${i+1}. ${p.title} - ${p.price} ${p.currency}`).join('\n');
-        
-        const prompt = `أنت خبير تسويق متخصص في السوق الجزائري.
-من بين هذه المنتجات، رتبها حسب جاذبيتها للمستهلك الجزائري (من الأكثر جاذبية للأقل):
-
-${productTitles}
-
-أعطني فقط أرقام المنتجات مرتبة (مثلاً: 2,1,4,3,5) بدون أي شرح.`;
-        
-        const ranking = await runGeminiWithRotation(prompt);
-        const order = ranking.match(/\d+/g);
-        
-        if (order && order.length > 0) {
-          const reorderedProducts = [];
-          order.forEach(idx => {
-            const index = parseInt(idx) - 1;
-            if (index >= 0 && index < products.length && products[index]) {
-              reorderedProducts.push({ ...products[index], aiRanked: true });
-            }
-          });
-          products.forEach(p => {
-            if (!reorderedProducts.find(rp => rp.id === p.id)) {
-              reorderedProducts.push(p);
-            }
-          });
-          products = reorderedProducts;
-        }
-      } catch (aiError) {
-        console.log('AI ranking failed:', aiError.message);
+    if (useAI) {
+      const eligibleProducts = rankProductsForPublishing(products);
+      if (eligibleProducts.length === 0) {
+        return res.json({
+          success: true,
+          total: 0,
+          products: [],
+          selectionApplied: true,
+          selectionMethod: 'deterministic',
+          message: 'لم نجد حاليًا منتجًا بتخفيض 30% أو أكثر يستحق النشر.'
+        });
       }
+
+      let selectedProducts = [];
+      const hasOpenRouter = Boolean(String(process.env.OPENROUTER_API_KEY || '').trim());
+      const releaseAiRequest = hasOpenRouter ? acquireDiscoverAiRequest(req) : null;
+      if (releaseAiRequest) {
+        try {
+          const selection = await runOpenRouterProductSelection(eligibleProducts.slice(0, 15));
+          selectedProducts = selection.map(item => ({
+            ...eligibleProducts[item.index - 1],
+            aiRanked: true,
+            aiRecommended: true,
+            aiScore: item.score,
+            aiReason: item.reason
+          }));
+          selectionMethod = 'openrouter';
+        } catch (aiError) {
+          console.log('OpenRouter product selection failed:', aiError.message);
+        } finally {
+          releaseAiRequest();
+        }
+      } else if (hasOpenRouter) {
+        selectionMethod = 'rate_limited';
+      }
+
+      // القائمة الفارغة من OpenRouter قرار مقصود: لا نُدخل منتجات لم يوصِ بها.
+      if (selectionMethod === 'openrouter' && selectedProducts.length === 0) {
+        return res.json({
+          success: true,
+          total: 0,
+          products: [],
+          selectionApplied: true,
+          selectionMethod,
+          message: 'لم يوصِ OpenRouter حاليًا بأي منتج يجمع بين التخفيض والجودة والطلب.'
+        });
+      }
+
+      if (selectionMethod !== 'openrouter' && selectedProducts.length === 0) {
+        selectedProducts = eligibleProducts.slice(0, 8).map(product => ({
+          ...product,
+          aiRanked: false,
+          aiRecommended: true,
+          aiReason: `تخفيض ${product.discount}% مع مؤشرات طلب مناسبة`
+        }));
+        if (!selectionMethod) selectionMethod = 'deterministic';
+      }
+      products = selectedProducts;
     }
 
     res.json({ 
       success: true, 
-      total: result.total,
-      products: products
+      total: useAI ? products.length : result.total,
+      products,
+      selectionApplied: Boolean(useAI),
+      selectionMethod
     });
   } catch (error) {
     console.error('Discover products error:', error);
     res.status(500).json({ success: false, error: 'حدث خطأ في البحث' });
+  }
+});
+
+app.get('/api/flash-deals', async (req, res) => {
+  try {
+    const hasAliExpressCredentials = Boolean(
+      String(process.env.ALIEXPRESS_APP_KEY || '').trim() &&
+      String(process.env.ALIEXPRESS_APP_SECRET || '').trim()
+    );
+    if (!hasAliExpressCredentials) {
+      return res.json({
+        success: true,
+        configured: false,
+        message: 'ربط AliExpress API غير مُعَدّ في هذه البيئة بعد.',
+        products: []
+      });
+    }
+
+    const requestedLimit = Number.parseInt(req.query.limit, 10);
+    const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 30) : 12;
+    const requestedCategory = String(req.query.category || '').trim();
+    const categoryId = algerianCategories[requestedCategory]?.id
+      || (/^\d+$/.test(requestedCategory) ? requestedCategory : undefined);
+    const options = {
+      limit: String(Math.max(limit * 2, 20)),
+      page: String(Math.max(Number.parseInt(req.query.page, 10) || 1, 1)),
+      category: categoryId,
+      keywords: String(req.query.keywords || '').trim() || undefined,
+      minPrice: req.query.minPrice || undefined,
+      maxPrice: req.query.maxPrice || undefined,
+      sort: 'LAST_VOLUME_DESC'
+    };
+
+    const result = await searchFlashDeals(options);
+    if (!result.success) {
+      const credentialsMissing = /missing (ali)?express api credentials|missing api credentials/i.test(String(result.error || ''));
+      if (credentialsMissing) {
+        return res.json({
+          success: true,
+          configured: false,
+          message: 'ربط AliExpress API غير مُعَدّ في هذه البيئة بعد.',
+          products: []
+        });
+      }
+      return res.status(502).json({
+        success: false,
+        error: 'تعذر جلب عروض الفلاش من AliExpress، حاول التحديث بعد قليل.',
+        code: 'ALIEXPRESS_UNAVAILABLE',
+        products: []
+      });
+    }
+
+    res.json({
+      success: true,
+      total: result.total || 0,
+      fetchedAt: new Date().toISOString(),
+      products: (result.products || []).slice(0, limit)
+    });
+  } catch (error) {
+    console.error('Flash deals API error:', error.message || error);
+    res.status(500).json({ success: false, error: 'حدث خطأ أثناء جلب عروض الفلاش', products: [] });
+  }
+});
+
+const flashSummaryRateLimit = new Map();
+const FLASH_SUMMARY_WINDOW_MS = 60 * 1000;
+const FLASH_SUMMARY_MAX_REQUESTS = 5;
+
+function allowFlashSummaryRequest(req) {
+  const ip = (req.ip || req.connection?.remoteAddress || 'unknown').replace('::ffff:', '');
+  const now = Date.now();
+  const previous = flashSummaryRateLimit.get(ip);
+  if (!previous || now - previous.startedAt >= FLASH_SUMMARY_WINDOW_MS) {
+    flashSummaryRateLimit.set(ip, { startedAt: now, count: 1 });
+    return true;
+  }
+  if (previous.count >= FLASH_SUMMARY_MAX_REQUESTS) return false;
+  previous.count += 1;
+  return true;
+}
+
+app.post('/api/ai-flash-deals-summary', async (req, res) => {
+  try {
+    const products = Array.isArray(req.body.products) ? req.body.products.slice(0, 8) : [];
+    if (products.length === 0) {
+      return res.status(400).json({ success: false, error: 'لا توجد عروض لتحسينها' });
+    }
+
+    const fallback = {
+      headline: 'عروض قوية تستاهل تشوفها',
+      body: 'رتبنا لك التخفيضات الكبيرة باش تلقى الفرص المليحة بسرعة. قارن السعر والتقييم قبل الشراء.',
+      tip: 'العرض القوي هو اللي يجمع بين التخفيض، التقييم، وعدد الطلبات.'
+    };
+    const hasOpenRouter = Boolean(String(process.env.OPENROUTER_API_KEY || '').trim());
+    if (!hasOpenRouter) {
+      return res.json({ success: true, method: 'fallback', summary: fallback });
+    }
+    if (!allowFlashSummaryRequest(req)) {
+      return res.status(429).json({
+        success: false,
+        error: 'تم تجاوز الحد المؤقت لتحسين الملخص. حاول مرة أخرى بعد دقيقة.'
+      });
+    }
+
+    const dealLines = products.map((product, index) => (
+      `${index + 1}. ${String(product.title || '').slice(0, 120)} — ${product.price || product.sale_price || '—'} ${product.currency || 'USD'} — تخفيض ${product.discount || 0}%`
+    )).join('\n');
+    const response = await axios.post(
+      'https://openrouter.ai/api/v1/chat/completions',
+      {
+        model: process.env.OPENROUTER_HOOK_MODEL || 'openrouter/auto',
+        messages: [
+          {
+            role: 'system',
+            content: 'أنت محرر عروض جزائري. أعد JSON فقط، بدون markdown أو شرح خارجي.'
+          },
+          {
+            role: 'user',
+            content: `حسّن عرض صفحة عروض فلاش جزائرية اعتماداً على المنتجات التالية:
+${dealLines}
+
+اكتب JSON بهذا الشكل فقط:
+{"headline":"عنوان قصير بالدارجة الجزائرية","body":"جملة قصيرة تشجع على اكتشاف العروض بدون مبالغة أو ضمانات","tip":"نصيحة شراء قصيرة وعملية"}`
+          }
+        ],
+        temperature: 0.8,
+        max_tokens: 180
+      },
+      {
+        timeout: 20000,
+        headers: {
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'X-Title': 'AffiliDz Flash Deals'
+        }
+      }
+    );
+
+    const content = response.data?.choices?.[0]?.message?.content;
+    const jsonMatch = String(content || '').match(/\{[\s\S]*\}/);
+    const summary = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    if (!summary || !summary.headline || !summary.body || !summary.tip) {
+      throw new Error('OpenRouter أعاد ملخصاً غير مكتمل');
+    }
+    res.json({
+      success: true,
+      method: 'openrouter',
+      summary: {
+        headline: String(summary.headline).trim().slice(0, 120),
+        body: String(summary.body).trim().slice(0, 280),
+        tip: String(summary.tip).trim().slice(0, 220)
+      }
+    });
+  } catch (error) {
+    console.log('Flash deals OpenRouter summary failed:', error.message || error);
+    res.json({
+      success: true,
+      method: 'fallback',
+      summary: {
+        headline: 'خلي عينك على التخفيضات الكبيرة',
+        body: 'شوف العروض المتاحة وقارن التفاصيل قبل ما تقرر.',
+        tip: 'الأسعار والتوفر يقدرو يتبدلو حسب البائع والوقت.'
+      }
+    });
   }
 });
 

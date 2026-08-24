@@ -1,2 +1,3 @@
 - [Telegram verification lifecycle](telegram-verification-lifecycle.md) — A saved `code_sent` state must expire, or stale Telegram requests block new delivery attempts.
 - [Spy image source priority](spy-image-source-priority.md) — Prefer media attached to the monitored post; product-page images are fallbacks for ambiguous promo links.
+- [OpenRouter product curation](openrouter-product-curation.md) — AI may shortlist only price-verified 30%+ deals; unavailable AI must not invent or weaken product criteria.
