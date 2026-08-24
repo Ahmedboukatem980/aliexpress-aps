@@ -903,7 +903,12 @@ app.post('/api/ai-validate-image', async (req, res) => {
     if (!getGeminiModel()) {
       return res.json({ success: true, matches: true, reason: 'no_ai' });
     }
-    const desc = (productTitle || postText || '').toString().substring(0, 800);
+    const titleContext = String(productTitle || '').trim().substring(0, 300);
+    const postContext = String(postText || '').trim().substring(0, 800);
+    const desc = [
+      titleContext ? `اسم المنتج المستخرج: ${titleContext}` : '',
+      postContext ? `نص المنشور الأصلي: ${postContext}` : ''
+    ].filter(Boolean).join('\n\n');
     if (!desc.trim()) {
       return res.json({ success: true, matches: true, reason: 'no_text' });
     }
@@ -917,6 +922,7 @@ ${desc}
 افحص الصورة جيداً. هل تُظهر الصورة هذا المنتج بالذات (نفس الفئة والنوع العام: مثلاً هاتف لمنشور هاتف، ساعة لمنشور ساعة، آلة تعدين لمنشور تعدين، إلخ)؟
 
 تجاهل الاختلافات الطفيفة في اللون أو الزاوية. ركّز على نوع المنتج الأساسي.
+إذا كانت الصورة تعرض منتجاً مختلفاً أو لم تكن الأدلة كافية للتأكد، أجب no ولا تخمّن.
 
 أجب بكلمة واحدة فقط: yes أو no`;
 

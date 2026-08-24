@@ -2387,8 +2387,20 @@ async function processPost(config, text, sourceImage, sourceName) {
   let finalImageSource = null;
 
   // محاولة وضع صورة كمرشح + فحص blacklist + تحقق Gemini. ترجع true إن قُبلت.
-  const tryAcceptImage = async (stepName, candidateBuffer, candidateUrl) => {
+  // strictValidation=false مخصص لصورة منشور المصدر فقط، لأنها ترتبط مباشرة بالمنشور.
+  const tryAcceptImage = async (stepName, candidateBuffer, candidateUrl, strictValidation = true) => {
     if (!candidateBuffer || !Buffer.isBuffer(candidateBuffer)) return false;
+
+    try {
+      const meta = await sharp(candidateBuffer).metadata();
+      if (!meta.width || !meta.height || meta.width < 180 || meta.height < 180) {
+        console.log(`🚫 [${stepName}] صورة صغيرة أو غير صالحة (${meta.width || 0}×${meta.height || 0}) — رفض`);
+        return false;
+      }
+    } catch (e) {
+      console.log(`🚫 [${stepName}] تعذرت قراءة بيانات الصورة — رفض`);
+      return false;
+    }
 
     // 🚫 1) فحص القائمة السوداء (الصور المتكررة عبر منتجات مختلفة)
     if (isImageBlacklisted(candidateBuffer)) {
@@ -2397,7 +2409,7 @@ async function processPost(config, text, sourceImage, sourceName) {
     }
 
     // 🤖 2) تحقق Gemini البصري
-    const matches = await validateImageMatchesPost(candidateBuffer, text, titleHintForValidation);
+    const matches = await validateImageMatchesPost(candidateBuffer, text, titleHintForValidation, strictValidation);
     if (!matches) {
       console.log(`❌ [${stepName}] Gemini رفض الصورة (لا تتطابق مع المنتج)`);
       return false;
@@ -2417,6 +2429,13 @@ async function processPost(config, text, sourceImage, sourceName) {
     console.log(`✅ [${stepName}] صورة مقبولة (مرّت كل الفحوصات)`);
     return true;
   };
+
+  // صورة المنشور الأصلي هي المرجع الأقوى لأنها مرفقة مباشرة بالنص والرابط.
+  // نتحقق منها أولاً، ثم نلجأ إلى صور AliExpress إذا رفضها الفحص صراحةً.
+  if (sourceImage && Buffer.isBuffer(sourceImage)) {
+    console.log(`🖼 [Source First] محاولة صورة المنشور الأصلي قبل صور الروابط...`);
+    await tryAcceptImage('Telegram Source', sourceImage, null, false);
+  }
 
   // ⭐ Simple Preview — الآن مع تحقق Gemini + blacklist (كان بدون تحقق سابقاً)
   if (!productImage && firstProductId) {
@@ -2544,32 +2563,6 @@ async function processPost(config, text, sourceImage, sourceName) {
           }
         }
       } catch (e) { console.log(`⚠️ Title Search فشل: ${e.message}`); }
-    }
-  }
-
-  // 5) صورة المنشور الأصلي من تيليجرام — الآن بفحص كامل (كانت تتجاوز كل شيء سابقاً!)
-  if (!productImage && sourceImage && Buffer.isBuffer(sourceImage)) {
-    console.log(`🖼 [5/5] محاولة صورة المنشور الأصلي من تيليغرام...`);
-    // فحص blacklist
-    if (isImageBlacklisted(sourceImage)) {
-      console.log(`🚫 صورة المنشور الأصلي في القائمة السوداء — رفض`);
-    } else {
-      // فحص Gemini البصري بوضع متساهل (لا نرفض عند فشل AI)
-      const matches = await validateImageMatchesPost(sourceImage, text, titleHintForValidation, false);
-      if (!matches) {
-        console.log(`❌ [Telegram Source] Gemini رفض صورة المصدر صراحةً — لن تُنشر صورة`);
-      } else {
-        // تتبّع التكرار (إذا كانت قناة التجسس تستخدم نفس الصورة لمنتجات مختلفة)
-        const firstOriginalLink = convertedLinks && convertedLinks[0] ? convertedLinks[0].originalLink : null;
-        const tracking = trackImageUsage(sourceImage, firstProductId, firstOriginalLink, 'Telegram Source');
-        if (tracking.duplicated) {
-          console.log(`⚠️ [Telegram Source] صورة استُخدمت لمنتجات أخرى — رفض احتياطي`);
-        } else {
-          productImage = { source: sourceImage };
-          finalImageSource = 'Telegram Source';
-          console.log(`✅ [Telegram Source] صورة مقبولة (آخر احتياط)`);
-        }
-      }
     }
   }
 
