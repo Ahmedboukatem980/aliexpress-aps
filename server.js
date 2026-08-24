@@ -1471,13 +1471,109 @@ function cleanupTitle(title) {
   return cleaned;
 }
 
+function buildAlgerianHookPrompt(title, price = '') {
+  return `
+أنت كاتب محتوى جزائري بالدارجة، خبير في صياغة مقدمات تسويقية قصيرة لقنوات تيليجرام.
+اكتب مقدمة حماسية واحدة فقط توضع فوق معلومات المنتج.
+
+أمثلة على الأسلوب:
+- الحححححق لافـــــار ما تراطيش 🔥
+- اجريييي راه بسعر باطل 💸
+- لافــــار خطيرة الكمية محدودة 🚨
+- نسخة عاااالمية بسعر باطل 💎
+- لووووووووووز خاوتي 🤩
+- سعر ممتاااااااز ما تفوتوهش 💎
+
+القواعد الإلزامية:
+1. من 4 إلى 8 كلمات فقط.
+2. استخدم الدارجة الجزائرية مع مطّ الحروف داخل بعض الكلمات.
+3. أضف إيموجي واحد فقط في النهاية.
+4. سطر واحد فقط، بدون شرح أو علامات تنسيق.
+5. ممنوع الأرقام والروابط وكلمة «تخفيض».
+6. ممنوع ذكر اسم المنتج أو اختراع معلومات غير موجودة.
+7. أرجع المقدمة فقط.
+
+بيانات المنتج (للفهم فقط):
+اسم المنتج: ${String(title).slice(0, 500)}
+السعر: ${String(price || 'غير متوفر').slice(0, 100)}
+`;
+}
+
+function cleanAlgerianHook(rawHook) {
+  if (rawHook == null) return null;
+  const content = String(rawHook)
+    .replace(/`{1,3}[\w-]*\s*/g, '')
+    .replace(/`/g, '')
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .find(line => line && !/^(json|المقدمة|هوك مقترح|النتيجة|نص الهوك|hook)\s*:?\s*$/i.test(line));
+
+  if (!content) return null;
+  const cleaned = content
+    .replace(/^(هوك مقترح|المقدمة|النتيجة|نص الهوك|Hook):\s*/i, '')
+    .replace(/[*#"'{}[\]_]/g, '')
+    .trim();
+
+  if (!cleaned || cleaned.length < 2 || /https?:\/\//i.test(cleaned)) return null;
+  return cleaned;
+}
+
+async function runOpenRouterAlgerianHook(title, price = '') {
+  const apiKey = String(process.env.OPENROUTER_API_KEY || '').trim();
+  if (!apiKey) throw new Error('OPENROUTER_API_KEY غير مضبوط');
+
+  const model = process.env.OPENROUTER_HOOK_MODEL || 'openrouter/auto';
+  const response = await axios.post(
+    'https://openrouter.ai/api/v1/chat/completions',
+    {
+      model,
+      messages: [
+        {
+          role: 'system',
+          content: 'أنت مولد مقدمات جزائرية قصيرة. التزم بالقواعد حرفيًا وأعد النص النهائي فقط.'
+        },
+        { role: 'user', content: buildAlgerianHookPrompt(title, price) }
+      ],
+      temperature: 1,
+      max_tokens: 80
+    },
+    {
+      timeout: 20000,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'X-Title': 'AffiliDz Algerian Hooks'
+      }
+    }
+  );
+
+  const content = response.data?.choices?.[0]?.message?.content;
+  const rawHook = Array.isArray(content)
+    ? content.map(part => typeof part === 'string' ? part : part?.text || '').join(' ')
+    : content;
+  const hook = cleanAlgerianHook(rawHook);
+  if (!hook) throw new Error('OpenRouter أعاد مقدمة فارغة أو غير صالحة');
+  return hook;
+}
+
 app.post('/api/ai-refine-title', async (req, res) => {
   try {
     const { title, isHook } = req.body;
     if (!title) return res.status(400).json({ success: false, error: 'العنوان مطلوب' });
 
     // Check if any AI key is available
+    const hasOpenRouter = Boolean(String(process.env.OPENROUTER_API_KEY || '').trim());
     const hasAI = getGeminiModel() !== null;
+
+    if (isHook && hasOpenRouter) {
+      try {
+        const hook = await runOpenRouterAlgerianHook(title);
+        console.log(`✅ OpenRouter Algerian hook: "${hook}"`);
+        return res.json({ success: true, refinedTitle: hook, method: 'openrouter' });
+      } catch (openRouterError) {
+        console.log('⚠️ OpenRouter hook failed, trying Gemini:', openRouterError.message);
+      }
+    }
 
     // If no AI model available, use simple cleanup
     if (!hasAI) {
@@ -2074,8 +2170,19 @@ app.post('/api/generate-algerian-hook', async (req, res) => {
       "لافـــــار سعـــــــــــر ممتـــــــــــــــــــــــاز 💸"
     ];
 
-    // Check if any AI key is available
+    // OpenRouter is used only for Algerian hooks; other AI routes remain on Gemini
+    const hasOpenRouter = Boolean(String(process.env.OPENROUTER_API_KEY || '').trim());
     const hasAI = getGeminiModel() !== null;
+
+    if (hasOpenRouter) {
+      try {
+        const hook = await runOpenRouterAlgerianHook(title, price);
+        console.log(`✅ OpenRouter Algerian hook: "${hook}"`);
+        return res.json({ success: true, hook, method: 'openrouter' });
+      } catch (openRouterError) {
+        console.log('⚠️ OpenRouter hook failed, trying Gemini:', openRouterError.message);
+      }
+    }
 
     if (!hasAI) {
       const randomHook = fallbackHooks[Math.floor(Math.random() * fallbackHooks.length)];
