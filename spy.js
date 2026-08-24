@@ -1222,6 +1222,45 @@ function extractAliExpressLinks(text) {
   return [...links];
 }
 
+function extractOriginalLinkLabels(text, links) {
+  if (!text || !Array.isArray(links) || links.length === 0) return [];
+
+  const lines = String(text).split(/\r?\n/).map(line => line.trim());
+  const instructionPattern = /(?:ادخل|أدخل|اضغط|إضغط|افتح|أفتح|أضف|اضف|السلة|الرابط|رابط|من هنا|هنا|link|click|cart|first|second|أولا|أولاً|ثانيا|ثانياً|1️⃣|2️⃣|👇|🛒)/i;
+  const isInstruction = (line) => {
+    if (!line || /^https?:\/\//i.test(line) || /(?:[\w-]+\.)*aliexpress\.com\//i.test(line)) return false;
+    const cleaned = line.replace(/[\s️\u200d\p{P}\p{S}]/gu, '');
+    return cleaned.length >= 3 && instructionPattern.test(line);
+  };
+  const removeUrls = (line) => line
+    .replace(/https?:\/\/[^\s<>"'،,؛;)\]]+/gi, '')
+    .replace(/(?:[\w-]+\.)*aliexpress\.com\/[^\s<>"'،,؛;)\]]+/gi, '')
+    .trim();
+
+  let searchFrom = 0;
+  return links.map((link, linkIndex) => {
+    const comparable = String(link || '').replace(/^https?:\/\//i, '').toLowerCase();
+    let lineIndex = lines.findIndex((line, index) => (
+      index >= searchFrom && line.toLowerCase().includes(comparable)
+    ));
+    if (lineIndex < 0) {
+      lineIndex = lines.findIndex(line => line.toLowerCase().includes(comparable));
+    }
+    if (lineIndex < 0) {
+      return null;
+    }
+    searchFrom = lineIndex + 1;
+
+    const sameLine = removeUrls(lines[lineIndex]);
+    if (isInstruction(sameLine)) return sameLine;
+
+    for (let index = lineIndex - 1; index >= Math.max(0, lineIndex - 3); index -= 1) {
+      if (isInstruction(lines[index])) return lines[index];
+    }
+    return null;
+  });
+}
+
 function extractPrice(text) {
   if (!text) return null;
   const patterns = [
@@ -2797,6 +2836,11 @@ async function processPost(config, text, sourceImage, sourceName) {
   const aiBundle = aiResult && (aiResult.isBundleDeal === true || aiResult.isBundleDeal === 'true');
   const textBundle = bundleKeywords.test(text || '');
   const isBundleDeal = (aiBundle || textBundle) && convertedLinks.length >= 2;
+  const originalLinkLabels = extractOriginalLinkLabels(
+    text,
+    convertedLinks.map(cl => cl.originalLink)
+  );
+  const getLinkLabel = (index) => originalLinkLabels[index] || `🔗 الرابط ${index + 1}`;
   if (isBundleDeal) {
     // استخراج عدد القطع: من جيميني أولاً، ثم من النص
     let qty = (aiResult && aiResult.bundleQuantity && Number.isInteger(aiResult.bundleQuantity) && aiResult.bundleQuantity > 1)
@@ -2810,9 +2854,9 @@ async function processPost(config, text, sourceImage, sourceName) {
       else qty = 3;
     }
     console.log(`🛒 عرض باندل مكتشف (AI: ${aiBundle}, نص: ${textBundle}) — ${qty} قطع`);
-    message += `1️⃣ أدخل أولا لهذا الرابط\n`;
+    message += `${escH(getLinkLabel(0))}\n`;
     message += `${escH(convertedLinks[0].affLink)}\n\n`;
-    message += `2️⃣ ثانيا أضف المنتج الى السلة من هنا\n`;
+    message += `${escH(getLinkLabel(1))}\n`;
     message += `${escH(convertedLinks[1].affLink)}\n`;
     if (convertedLinks.length > 2) {
       convertedLinks.slice(2).forEach(cl => { message += `${escH(cl.affLink)}\n`; });
