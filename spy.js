@@ -2371,7 +2371,6 @@ async function processPost(config, text, sourceImage, sourceName) {
   const sourceImageMode = ['filtered', 'allowed', 'never'].includes(config.sourceImageMode)
     ? config.sourceImageMode
     : 'filtered';
-  const sourceImageOnly = Buffer.isBuffer(sourceImage) && sourceImageMode !== 'never';
 
   let aiResult = null;
   try {
@@ -2509,16 +2508,12 @@ async function processPost(config, text, sourceImage, sourceName) {
 
       if (!firstProductId && resolvedProductId) {
         firstProductId = resolvedProductId;
-        if (sourceImageOnly) {
-          console.log('⏭️ توجد صورة مصدر — تخطي معاينة صورة المنتج الخارجية');
-        } else {
-          const preview = await fetchLinkPreview(resolvedProductId);
-          if (preview) {
-            console.log(`✅ بيانات المنتج (الطريقة: ${preview.method})`);
-            firstApiTitle = preview.title || '';
-            firstProductImage = preview.image_url || '';
-            firstProductPrice = priceFromPost || preview.price || '';
-          }
+        const preview = await fetchLinkPreview(resolvedProductId);
+        if (preview) {
+          console.log(`✅ بيانات المنتج (الطريقة: ${preview.method})`);
+          firstApiTitle = preview.title || '';
+          firstProductImage = preview.image_url || '';
+          firstProductPrice = priceFromPost || preview.price || '';
         }
       }
     } catch (linkErr) {
@@ -2552,11 +2547,9 @@ async function processPost(config, text, sourceImage, sourceName) {
 
   // تتبّع المصدر النهائي للصورة (لكشف المصدر المسؤول عن صور خاطئة)
   let finalImageSource = null;
-  // يُستخدم هذا المرجع فقط عند اختيار المستخدم تجاهل صورة المصدر.
-  let sourceReferenceForRemote = null;
-  // عند وجود صورة أصلية لا ننتقل تلقائياً إلى أي مصدر صورة آخر.
-  // الاستثناء الوحيد هو اختيار المستخدم الصريح لوضع "never".
-  let sourceImageLock = false;
+  // صورة المصدر لا تُستخدم إلا كحل أخير، لكنها تبقى مرجعاً بصرياً
+  // لفحص أي صورة بديلة حتى لا نستخدم صورة لمنتج مختلف.
+  let sourceReferenceForRemote = Buffer.isBuffer(sourceImage) ? sourceImage : null;
 
   // محاولة وضع صورة كمرشح + فحص blacklist + تحقق Gemini. ترجع true إن قُبلت.
   // strictValidation=false مخصص لصورة منشور المصدر فقط، لأنها ترتبط مباشرة بالمنشور.
@@ -2588,7 +2581,7 @@ async function processPost(config, text, sourceImage, sourceName) {
     }
 
     // 🧭 3) إذا أخفينا صورة المصدر للوق المنافس، لا نقبل بديلاً إلا إن كان لنفس المنتج.
-    if (sourceReferenceForRemote && stepName !== 'Telegram Source') {
+    if (sourceReferenceForRemote && !stepName.startsWith('Telegram Source')) {
       const sameAsSource = await matchesSourceProductImage(
         sourceReferenceForRemote,
         candidateBuffer,
@@ -2616,32 +2609,15 @@ async function processPost(config, text, sourceImage, sourceName) {
     return true;
   };
 
-  // صورة المنشور الأصلي هي المرجع الأقوى لأنها مرفقة مباشرة بالنص والرابط.
-  // نتحقق منها أولاً، ثم نلجأ إلى صور AliExpress إذا رفضها الفحص صراحةً.
   if (sourceImage && Buffer.isBuffer(sourceImage) && sourceImageMode !== 'never') {
-    sourceImageLock = true;
-    console.log(`🖼 [Source First] محاولة صورة المنشور الأصلي (الوضع: ${sourceImageMode})...`);
-    let rejectedByWatermarkFilter = false;
-    if (sourceImageMode === 'filtered') {
-      rejectedByWatermarkFilter = await detectForeignWatermark(sourceImage, true);
-    }
-    if (rejectedByWatermarkFilter) {
-      const cleanedSource = await cropTopSourceBranding(sourceImage);
-      if (cleanedSource && await tryAcceptImage('Telegram Source (cropped)', cleanedSource, null, false)) {
-        console.log('✅ [Source Image Filter] نُشرت صورة المصدر بعد إزالة الشريط العلوي الخاص باللوق');
-      } else {
-        console.log('⛔ تعذر تنظيف صورة المصدر — لن يتم جلب أو استخدام أي صورة بديلة');
-      }
-    } else {
-      await tryAcceptImage('Telegram Source', sourceImage, null, false);
-    }
+    console.log(`🖼 [Source Last] ستُستخدم صورة المنشور الأصلي كحل أخير فقط (الوضع: ${sourceImageMode})`);
   } else if (sourceImageMode === 'never') {
-    if (sourceImage && Buffer.isBuffer(sourceImage)) sourceReferenceForRemote = sourceImage;
-    console.log('⏭️ تم تعطيل نشر صورة المصدر؛ ستُستخدم داخلياً فقط للتحقق من صورة المنتج');
+    sourceReferenceForRemote = null;
+    console.log('⏭️ تم تعطيل استخدام صورة المصدر؛ سيتم الاعتماد على صور AliExpress مع التحقق من المنتج');
   }
 
   // ⭐ Simple Preview — الآن مع تحقق Gemini + blacklist (كان بدون تحقق سابقاً)
-  if (!productImage && !sourceImageLock && firstProductId) {
+  if (!productImage && firstProductId) {
     console.log(`🖼 [⭐] محاولة Simple Preview...`);
     try {
       const sp = await fetchImageViaSimplePreview(firstProductId);
@@ -2655,7 +2631,7 @@ async function processPost(config, text, sourceImage, sourceName) {
   }
 
   // 🆕 [0bis/5] Mobile JSON Page — يقرأ imagePathList من صفحة المنتج
-  if (!productImage && !sourceImageLock && firstProductId) {
+  if (!productImage && firstProductId) {
     console.log(`🖼 [0bis/5] محاولة Mobile JSON Page (imagePathList)...`);
     try {
       const mjResult = await fetchImageFromMobilePageJson(firstProductId);
@@ -2669,7 +2645,7 @@ async function processPost(config, text, sourceImage, sourceName) {
   }
 
   // 🆕 [A] JSON-LD من صفحة المنتج (Structured Data — موثوق جداً)
-  if (!productImage && !sourceImageLock && firstProductId) {
+  if (!productImage && firstProductId) {
     console.log(`🖼 [A] محاولة JSON-LD Structured Data...`);
     try {
       const jlResult = await fetchImageViaJsonLd(firstProductId);
@@ -2683,7 +2659,7 @@ async function processPost(config, text, sourceImage, sourceName) {
   }
 
   // 🆕 [B] Open Graph من رابط الأفليت مباشرة (يتبع التحويلات حتى الصفحة النهائية)
-  if (!productImage && !sourceImageLock && previewLink) {
+  if (!productImage && previewLink) {
     console.log(`🖼 [B] محاولة OG Image من رابط الأفليت...`);
     try {
       const ogResult = await fetchImageViaAffOgImage(previewLink);
@@ -2695,7 +2671,7 @@ async function processPost(config, text, sourceImage, sourceName) {
   }
 
   // 0) صورة من fetchLinkPreview
-  if (!productImage && !sourceImageLock && firstProductImage) {
+  if (!productImage && firstProductImage) {
     console.log(`🖼 [0/5] محاولة صورة fetchLinkPreview...`);
     try {
       if (!isLikelyVideoUrl(firstProductImage)) {
@@ -2706,7 +2682,7 @@ async function processPost(config, text, sourceImage, sourceName) {
   }
 
   // 1) AliExpress API
-  if (!productImage && !sourceImageLock && firstProductId) {
+  if (!productImage && firstProductId) {
     console.log(`🖼 [1/5] محاولة AliExpress API...`);
     try {
       const apiResult = await getProductDetails(firstProductId);
@@ -2725,7 +2701,7 @@ async function processPost(config, text, sourceImage, sourceName) {
   }
 
   // 2) Cheerio scraper
-  if (!productImage && !sourceImageLock && firstProductId) {
+  if (!productImage && firstProductId) {
     console.log(`🖼 [2/5] محاولة Cheerio scraper...`);
     try {
       const chResult = await fetchImageFromAliExpressPageCheerio(firstProductId);
@@ -2739,7 +2715,7 @@ async function processPost(config, text, sourceImage, sourceName) {
   }
 
   // 3) Microlink.io
-  if (!productImage && !sourceImageLock && previewLink) {
+  if (!productImage && previewLink) {
     console.log(`🖼 [3/5] محاولة Microlink.io...`);
     try {
       const mlResult = await fetchImageViaMicrolink(previewLink);
@@ -2753,7 +2729,7 @@ async function processPost(config, text, sourceImage, sourceName) {
   }
 
   // 🆕 [C] بحث AliExpress بالعنوان (مفيد عند فشل كل طرق Product ID)
-  if (!productImage && !sourceImageLock) {
+  if (!productImage) {
     const searchTitle = (aiResult && aiResult.productName) || firstApiTitle || '';
     if (searchTitle && searchTitle.length >= 3) {
       console.log(`🖼 [C] محاولة بحث AliExpress بالعنوان: "${searchTitle.substring(0, 60)}"...`);
@@ -2772,10 +2748,22 @@ async function processPost(config, text, sourceImage, sourceName) {
   // 📊 سجل نهائي يكشف مصدر الصورة المختار
   if (productImage && finalImageSource) {
     console.log(`📌 المصدر النهائي للصورة: [${finalImageSource}] لمنتج ${firstProductId || 'بدون ID'}`);
-  } else if (!productImage) {
-    console.log(sourceImageLock
-      ? `❌ صورة المصدر موجودة لكن لم تُقبل — لن يتم جلب صورة بديلة وسيُنشر بدون صورة`
-      : `❌ لم يتم العثور على أي صورة صالحة لهذا المنشور — سيُنشر بدون صورة`);
+  }
+
+  // صورة المصدر هي الحل الأخير فقط بعد فشل كل صور AliExpress أو رفضها.
+  if (!productImage && sourceImage && Buffer.isBuffer(sourceImage) && sourceImageMode !== 'never') {
+    console.log('🖼 [Source Last] لم تُقبل أي صورة خارجية — تجربة صورة المنشور الأصلي الآن');
+    let sourceFallback = sourceImage;
+    if (sourceImageMode === 'filtered' && await detectForeignWatermark(sourceImage, true)) {
+      sourceFallback = await cropTopSourceBranding(sourceImage);
+    }
+    if (sourceFallback && await tryAcceptImage('Telegram Source (last fallback)', sourceFallback, null, false)) {
+      console.log('✅ [Source Last] تم استخدام صورة المنشور الأصلي كحل أخير');
+    }
+  }
+
+  if (!productImage) {
+    console.log(`❌ لم يتم العثور على أي صورة صالحة لهذا المنشور — سيُنشر بدون صورة`);
   }
 
   // تحميل كـ Buffer إن وُجدت صورة كرابط نصي
