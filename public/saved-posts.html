@@ -298,7 +298,9 @@
             try {
                 const r = await fetch('/api/saved-posts');
                 const d = await r.json();
-                if (Array.isArray(d)) serverPosts = d;
+                serverPosts = Array.isArray(d?.posts)
+                    ? d.posts
+                    : (Array.isArray(d) ? d : []);
             } catch(e) {}
 
             // دمج: localStorage + سيرفر بدون تكرار (ID كمفتاح)
