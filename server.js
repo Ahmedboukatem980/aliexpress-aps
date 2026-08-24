@@ -889,6 +889,33 @@ async function runGeminiVisionWithRotation(prompt, imageBase64, mimeType = 'imag
   throw new Error('All Gemini API keys exhausted');
 }
 
+// Vision variant for comparing two product images while preserving Gemini key rotation.
+async function runGeminiTwoImageVisionWithRotation(prompt, firstImage, secondImage, maxRetries = 3) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const currentModel = getGeminiModel();
+    if (!currentModel) throw new Error('No Gemini API key available');
+    try {
+      const result = await currentModel.generateContent([
+        prompt,
+        { inlineData: { data: firstImage.base64, mimeType: firstImage.mimeType } },
+        { inlineData: { data: secondImage.base64, mimeType: secondImage.mimeType } }
+      ]);
+      const response = await result.response;
+      const text = response.text().trim();
+      rotateGeminiKey();
+      return text;
+    } catch (error) {
+      const errorMsg = error.message || '';
+      const isQuotaError = errorMsg.includes('quota') || errorMsg.includes('429') || errorMsg.includes('RESOURCE_EXHAUSTED');
+      const isKeyError = errorMsg.includes('API_KEY_INVALID') || errorMsg.includes('not valid') || errorMsg.includes('leaked') || errorMsg.includes('403');
+      console.log(`⚠️ Gemini two-image Vision error (محاولة ${attempt + 1}): ${errorMsg.substring(0, 120)}`);
+      if ((isQuotaError || isKeyError) && rotateGeminiKey()) continue;
+      if (attempt === maxRetries - 1) throw error;
+    }
+  }
+  throw new Error('All Gemini API keys exhausted');
+}
+
 // التحقق البصري: هل الصورة تتطابق مع وصف المنتج في النص؟ (داخلي فقط — localhost)
 app.post('/api/ai-validate-image', async (req, res) => {
   try {
@@ -938,6 +965,59 @@ ${desc}
     }
   } catch (e) {
     res.json({ success: true, matches: true, reason: 'exception', error: e.message });
+  }
+});
+
+// يقارن صورة المصدر بصورة مرشحة من AliExpress حتى لا تتحول صورة خاطئة إلى بديل عند رفض لوق المنافس.
+app.post('/api/ai-compare-product-images', async (req, res) => {
+  try {
+    const remoteIp = (req.ip || req.connection?.remoteAddress || '').replace('::ffff:', '');
+    if (remoteIp !== '127.0.0.1' && remoteIp !== '::1' && remoteIp !== 'localhost') {
+      return res.status(403).json({ success: false, error: 'forbidden' });
+    }
+    const {
+      referenceImageBase64, referenceMimeType,
+      candidateImageBase64, candidateMimeType,
+      productTitle
+    } = req.body || {};
+    if (!referenceImageBase64 || !candidateImageBase64) {
+      return res.json({ success: true, sameProduct: null, reason: 'missing_image' });
+    }
+    if (!getGeminiModel()) {
+      return res.json({ success: true, sameProduct: null, reason: 'no_ai' });
+    }
+
+    const titleContext = String(productTitle || '').trim().substring(0, 300);
+    const prompt = `أنت مدقق صور منتجات. ستستلم صورتين بالترتيب:
+1) صورة منشور المصدر، وقد تحتوي على لوق أو إطار أو نص ترويجي.
+2) صورة مرشحة للنشر من AliExpress.
+
+هل الصورتان تعرضان نفس المنتج الأساسي؟ تجاهل اللوقوات والإطارات واختلاف الخلفية واللون والزاوية.
+${titleContext ? `اسم المنتج المتوقع: ${titleContext}` : ''}
+
+إذا كانت الفئة مختلفة بوضوح (مثل هاتف مقابل دعامة ركبة، أو سماعات مقابل حقيبة)، أجب no.
+عند أدنى شك، أجب no. لا تخمّن.
+
+أجب بكلمة واحدة فقط: yes أو no`;
+
+    try {
+      const raw = await runGeminiTwoImageVisionWithRotation(prompt, {
+        base64: referenceImageBase64,
+        mimeType: referenceMimeType || 'image/jpeg'
+      }, {
+        base64: candidateImageBase64,
+        mimeType: candidateMimeType || 'image/jpeg'
+      });
+      const answer = (raw || '').toLowerCase().trim();
+      const sameProduct = /\byes\b/.test(answer) && !/\bno\b/.test(answer);
+      console.log(`🔎 [compare-product-images] الرد: "${answer.substring(0, 40)}" → ${sameProduct ? '✅ نفس المنتج' : '❌ منتج مختلف'}`);
+      res.json({ success: true, sameProduct, raw: answer.substring(0, 50) });
+    } catch (e) {
+      console.log(`⚠️ [compare-product-images] فشل: ${e.message}`);
+      res.json({ success: true, sameProduct: null, reason: 'ai_error' });
+    }
+  } catch (e) {
+    res.json({ success: true, sameProduct: null, reason: 'exception' });
   }
 });
 

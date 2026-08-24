@@ -7,4 +7,4 @@ When a monitored Telegram post contains an attached image, evaluate it before fe
 
 **Why:** Bundle, coin, and promotion links can resolve to a different product page or a generic preview, while the media attached to the source post usually represents the advertised item.
 
-**How to apply:** Keep source-media priority with watermark filtering enabled by default, validate against both the extracted product title and original post text, and reject uncertain remote candidates rather than publishing a mismatched image.
+**How to apply:** Keep source-media priority with watermark filtering enabled by default and skip remote image previews whenever source media exists. For the common top-banner logo, crop the source's top branding strip. If source media remains unusable, publish without an image unless the user explicitly chooses to ignore source media.
