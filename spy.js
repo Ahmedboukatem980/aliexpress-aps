@@ -324,6 +324,7 @@ function getDefaultConfig() {
     phoneNumber: '',
     autoPublish: true,
     linkType: 'coin',
+    sourceImageMode: 'filtered',
     messageTemplate: {
       headerText: '',
       prefix: '🔥 عرض حصري',
@@ -2206,6 +2207,65 @@ async function validateImageMatchesPost(buffer, postText, productTitle, strict =
   });
 }
 
+// يكتشف الشعارات والعلامات المائية الخاصة بقنوات/معلنين آخرين في صورة المصدر.
+// لا يعتبر شعار المنتج نفسه أو الكتابة الموجودة على علبة المنتج علامة منافسة.
+async function detectForeignWatermark(buffer, strict = true) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const safeResolve = (val) => { if (!settled) { settled = true; resolve(val); } };
+
+    if (!Buffer.isBuffer(buffer) || buffer.length < 1000 || buffer.length > 5 * 1024 * 1024) {
+      return safeResolve(strict);
+    }
+
+    const imageBase64 = buffer.toString('base64');
+    const ext = detectImageExt(buffer);
+    const mimeType = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : 'image/jpeg');
+    const postData = JSON.stringify({ imageBase64, mimeType });
+    const options = {
+      hostname: '127.0.0.1',
+      port: parseInt(process.env.PORT) || 5000,
+      path: '/api/ai-detect-foreign-watermark',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) }
+    };
+    const req = http.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed && parsed.hasForeignWatermark === true) {
+            console.log('🚫 [Source Image Filter] تم اكتشاف لوق/علامة مائية لقناة أو معلن آخر');
+            return safeResolve(true);
+          }
+          if (parsed && parsed.hasForeignWatermark === false && !parsed.reason) {
+            console.log('✅ [Source Image Filter] لا يوجد لوق منافس ظاهر');
+            return safeResolve(false);
+          }
+          const reason = (parsed && parsed.reason) || 'unknown';
+          console.log(`⚠️ [Source Image Filter] تعذر الفحص (${reason}) → ${strict ? 'رفض صورة المصدر' : 'السماح'}`);
+          safeResolve(strict);
+        } catch {
+          console.log(`⚠️ [Source Image Filter] رد غير صالح → ${strict ? 'رفض صورة المصدر' : 'السماح'}`);
+          safeResolve(strict);
+        }
+      });
+    });
+    req.on('error', () => {
+      console.log(`⚠️ [Source Image Filter] تعذر الاتصال بالفحص → ${strict ? 'رفض صورة المصدر' : 'السماح'}`);
+      safeResolve(strict);
+    });
+    req.setTimeout(20000, () => {
+      req.destroy();
+      console.log(`⚠️ [Source Image Filter] انتهت مهلة الفحص → ${strict ? 'رفض صورة المصدر' : 'السماح'}`);
+      safeResolve(strict);
+    });
+    req.write(postData);
+    req.end();
+  });
+}
+
 async function processPost(config, text, sourceImage, sourceName) {
   const aliLinks = extractAliExpressLinks(text);
   if (aliLinks.length === 0) return;
@@ -2432,9 +2492,22 @@ async function processPost(config, text, sourceImage, sourceName) {
 
   // صورة المنشور الأصلي هي المرجع الأقوى لأنها مرفقة مباشرة بالنص والرابط.
   // نتحقق منها أولاً، ثم نلجأ إلى صور AliExpress إذا رفضها الفحص صراحةً.
-  if (sourceImage && Buffer.isBuffer(sourceImage)) {
-    console.log(`🖼 [Source First] محاولة صورة المنشور الأصلي قبل صور الروابط...`);
-    await tryAcceptImage('Telegram Source', sourceImage, null, false);
+  const sourceImageMode = ['filtered', 'allowed', 'never'].includes(config.sourceImageMode)
+    ? config.sourceImageMode
+    : 'filtered';
+  if (sourceImage && Buffer.isBuffer(sourceImage) && sourceImageMode !== 'never') {
+    console.log(`🖼 [Source First] محاولة صورة المنشور الأصلي (الوضع: ${sourceImageMode})...`);
+    let rejectedByWatermarkFilter = false;
+    if (sourceImageMode === 'filtered') {
+      rejectedByWatermarkFilter = await detectForeignWatermark(sourceImage, true);
+    }
+    if (rejectedByWatermarkFilter) {
+      console.log('↪️ سيتم استخدام صورة المنتج من AliExpress بدل صورة المصدر');
+    } else {
+      await tryAcceptImage('Telegram Source', sourceImage, null, false);
+    }
+  } else if (sourceImageMode === 'never') {
+    console.log('⏭️ تم تعطيل صورة المصدر من الإعدادات — سيتم استخدام صورة المنتج');
   }
 
   // ⭐ Simple Preview — الآن مع تحقق Gemini + blacklist (كان بدون تحقق سابقاً)

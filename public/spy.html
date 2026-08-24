@@ -343,6 +343,15 @@
                     <div id="applyFrameHint" style="display:none; padding: 4px 0 8px; font-size: 12px; color: #9ca3af;">
                         <i class="fas fa-info-circle"></i> سيُطبَّق الإطار + اللوقو على كل صورة قبل النشر (يُضاف ~1-2 ثانية لكل منشور). يمكنك تغيير الإطار/اللوقو من <a href="/" style="color:#FFC424;">الإعدادات الرئيسية</a>.
                     </div>
+                    <div class="form-group" style="padding: 8px 0 2px;">
+                        <label for="sourceImageMode"><i class="fas fa-copyright" style="color:var(--accent-purple);margin-left:4px;"></i> صور المنشور الأصلي</label>
+                        <select id="sourceImageMode">
+                            <option value="filtered">استخدمها بعد فلترة لوق القنوات المنافسة</option>
+                            <option value="allowed">استخدمها بدون فلتر</option>
+                            <option value="never">تجاهلها واستخدم صورة المنتج من AliExpress</option>
+                        </select>
+                        <p class="form-hint">الوضع الأول يفحص الصورة بصريًا؛ إذا وجد لوقًا أو اسم قناة، يستخدم صورة المنتج بدلًا منها.</p>
+                    </div>
                     <div class="toggle-row">
                         <label class="toggle-row-label" for="removeBackground"><i class="fas fa-magic"></i> إزالة خلفية المنتج</label>
                         <label class="switch"><input type="checkbox" id="removeBackground"><span class="slider"></span></label>
@@ -439,6 +448,7 @@
             manualReview: false,
             dailyLimit: 0,
             useTypedLinks: false,
+            sourceImageMode: 'filtered',
             applyFrame: false,
             removeBackground: false,
             linkType: 'coin',
@@ -590,6 +600,7 @@
             config.manualReview = document.getElementById('manualReview').checked;
             config.dailyLimit = parseInt(document.getElementById('dailyLimit').value) || 0;
             config.useTypedLinks = document.getElementById('useTypedLinks').checked;
+            config.sourceImageMode = document.getElementById('sourceImageMode').value || 'filtered';
             config.applyFrame = document.getElementById('applyFrame').checked;
             config.removeBackground = document.getElementById('removeBackground').checked;
             // اقرأ إعدادات الإطار/اللوقو من الإعدادات الرئيسية المخزَّنة محلياً
@@ -638,6 +649,7 @@
             document.getElementById('manualReview').checked = !!config.manualReview;
             document.getElementById('dailyLimit').value = config.dailyLimit || 0;
             document.getElementById('useTypedLinks').checked = !!config.useTypedLinks;
+            document.getElementById('sourceImageMode').value = ['filtered', 'allowed', 'never'].includes(config.sourceImageMode) ? config.sourceImageMode : 'filtered';
             document.getElementById('applyFrame').checked = !!config.applyFrame;
             document.getElementById('applyFrameHint').style.display = config.applyFrame ? 'block' : 'none';
             document.getElementById('removeBackground').checked = !!config.removeBackground;
@@ -768,6 +780,7 @@
                     config.manualReview = !!c.manualReview;
                     config.dailyLimit = c.dailyLimit || 0;
                     config.useTypedLinks = !!c.useTypedLinks;
+                    config.sourceImageMode = ['filtered', 'allowed', 'never'].includes(c.sourceImageMode) ? c.sourceImageMode : 'filtered';
                     config.applyFrame = !!c.applyFrame;
                     config.removeBackground = !!c.removeBackground;
                     config.linkType = c.linkType || 'coin';

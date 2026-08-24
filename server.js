@@ -941,6 +941,45 @@ ${desc}
   }
 });
 
+// فحص صورة المصدر بحثاً عن لوق/علامة مائية لقناة أو معلن آخر.
+app.post('/api/ai-detect-foreign-watermark', async (req, res) => {
+  try {
+    const remoteIp = (req.ip || req.connection?.remoteAddress || '').replace('::ffff:', '');
+    if (remoteIp !== '127.0.0.1' && remoteIp !== '::1' && remoteIp !== 'localhost') {
+      return res.status(403).json({ success: false, error: 'forbidden' });
+    }
+    const { imageBase64, mimeType } = req.body || {};
+    if (!imageBase64 || typeof imageBase64 !== 'string') {
+      return res.json({ success: true, hasForeignWatermark: false, reason: 'no_image' });
+    }
+    if (!getGeminiModel()) {
+      return res.json({ success: true, hasForeignWatermark: null, reason: 'no_ai' });
+    }
+
+    const prompt = `أنت مدقق للصور الإعلانية. افحص الصورة وحدد هل يوجد عليها لوقو أو علامة مائية أو اسم مستخدم/قناة تابع لقناة تيليجرام أو متجر أو معلن آخر، مثل @username أو اسم قناة أو نص ترويجي مضاف فوق الصورة.
+
+أجب yes فقط إذا كان هناك شعار/نص ترويجي مضاف على الصورة ويمكن أن ينسبها لمنافس أو مصدر آخر.
+لا تعتبر شعار الشركة المصنّعة أو اسم المنتج المطبوع على المنتج/العلبة علامة منافسة.
+لا تعتبر عناصر التصميم الأصلية للمنتج علامة مائية.
+إذا لم تكن متأكداً، أجب yes لحماية القناة من نشر علامة منافسة.
+
+أجب بكلمة واحدة فقط: yes أو no`;
+
+    try {
+      const raw = await runGeminiVisionWithRotation(prompt, imageBase64, mimeType || 'image/jpeg');
+      const answer = (raw || '').toLowerCase().trim();
+      const hasForeignWatermark = /\byes\b/.test(answer) && !/\bno\b/.test(answer);
+      console.log(`🔎 [watermark-check] الرد: "${answer.substring(0, 40)}" → ${hasForeignWatermark ? '🚫 لوق ظاهر' : '✅ لا يوجد لوق منافس'}`);
+      res.json({ success: true, hasForeignWatermark, raw: answer.substring(0, 50) });
+    } catch (e) {
+      console.log(`⚠️ [watermark-check] فشل: ${e.message}`);
+      res.json({ success: true, hasForeignWatermark: null, reason: 'ai_error' });
+    }
+  } catch (e) {
+    res.json({ success: true, hasForeignWatermark: null, reason: 'exception' });
+  }
+});
+
 // Add logo watermark only (without frame)
 app.post('/api/add-watermark', async (req, res) => {
   try {
@@ -3394,6 +3433,7 @@ app.post('/api/spy/config', async (req, res) => {
     if (incoming.sourceChannels) config.sourceChannels = incoming.sourceChannels;
     if (incoming.targetChannels) config.targetChannels = incoming.targetChannels;
     if (incoming.linkType) config.linkType = incoming.linkType;
+    if (['filtered', 'allowed', 'never'].includes(incoming.sourceImageMode)) config.sourceImageMode = incoming.sourceImageMode;
     if (incoming.messageTemplate) config.messageTemplate = incoming.messageTemplate;
     if (incoming.autoPublish !== undefined) config.autoPublish = incoming.autoPublish;
     if (incoming.publishDelay !== undefined) config.publishDelay = incoming.publishDelay;
@@ -3435,6 +3475,7 @@ app.post('/api/spy/start', async (req, res) => {
     if (incoming.sourceChannels) config.sourceChannels = incoming.sourceChannels;
     if (incoming.targetChannels) config.targetChannels = incoming.targetChannels;
     if (incoming.linkType) config.linkType = incoming.linkType;
+    if (['filtered', 'allowed', 'never'].includes(incoming.sourceImageMode)) config.sourceImageMode = incoming.sourceImageMode;
     if (incoming.messageTemplate) config.messageTemplate = incoming.messageTemplate;
     if (incoming.autoPublish !== undefined) config.autoPublish = incoming.autoPublish;
     if (incoming.publishDelay !== undefined) config.publishDelay = incoming.publishDelay;
