@@ -899,12 +899,20 @@
         function useFlashProduct(index) {
             const product = currentFlashDeals[index];
             const url = product && (product.promotion_link || product.product_url);
-            if (!url) {
+            const rawUrl = String(url || '').trim();
+            let productUrl;
+            if (rawUrl) {
+                try {
+                    productUrl = new URL(rawUrl);
+                } catch (_) {
+                    productUrl = null;
+                }
+            }
+            if (!productUrl || !/^https?:$/.test(productUrl.protocol)) {
                 showToast('لا يوجد رابط صالح لهذا العرض');
                 return;
             }
-            localStorage.setItem('pendingProductUrl', url);
-            window.location.href = '/';
+            window.location.assign(productUrl.href);
         }
 
         document.getElementById('flashRefreshBtn').addEventListener('click', loadFlashDeals);
